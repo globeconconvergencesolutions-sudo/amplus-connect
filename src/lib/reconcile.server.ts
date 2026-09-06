@@ -59,7 +59,7 @@ export async function reconcileOrder(
         confirmation_code: status.confirmation_code ?? payment.confirmation_code,
         provider_status: providerStatus,
         internal_status: internalStatus,
-        provider_response: status as unknown as Record<string, unknown>,
+        provider_response: JSON.parse(JSON.stringify(status)),
         ...timestampField,
       })
       .eq("id", payment.id);
@@ -74,7 +74,7 @@ export async function reconcileOrder(
       confirmation_code: status.confirmation_code ?? null,
       provider_status: providerStatus,
       internal_status: internalStatus,
-      provider_response: status as unknown as Record<string, unknown>,
+      provider_response: JSON.parse(JSON.stringify(status)),
       ...timestampField,
     });
   }
