@@ -12,7 +12,7 @@ export type Product = {
   slug: string;
   short_description: string | null;
   description: string | null;
-  specifications: Record<string, string> | null;
+  specifications: unknown;
   price_kes: number;
   stock: number;
   unit: string;
@@ -49,7 +49,7 @@ export const productsQuery = (options?: { featured?: boolean; categoryId?: strin
         .order("name", { ascending: true });
       if (options?.featured) query = query.eq("is_featured", true);
       if (options?.categoryId) query = query.eq("category_id", options.categoryId);
-      return unwrap<Product[]>(await query);
+      return unwrap<Product[]>(await query as never);
     },
   });
 
