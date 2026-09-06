@@ -10,33 +10,43 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPublicPesapalIpnRouteImport } from './routes/api/public/pesapal/ipn'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPesapalIpnRoute = ApiPublicPesapalIpnRouteImport.update({
+  id: '/api/public/pesapal/ipn',
+  path: '/api/public/pesapal/ipn',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/public/pesapal/ipn': typeof ApiPublicPesapalIpnRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/public/pesapal/ipn': typeof ApiPublicPesapalIpnRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/public/pesapal/ipn': typeof ApiPublicPesapalIpnRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/api/public/pesapal/ipn'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/api/public/pesapal/ipn'
+  id: '__root__' | '/' | '/api/public/pesapal/ipn'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiPublicPesapalIpnRoute: typeof ApiPublicPesapalIpnRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +58,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/pesapal/ipn': {
+      id: '/api/public/pesapal/ipn'
+      path: '/api/public/pesapal/ipn'
+      fullPath: '/api/public/pesapal/ipn'
+      preLoaderRoute: typeof ApiPublicPesapalIpnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiPublicPesapalIpnRoute: ApiPublicPesapalIpnRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
