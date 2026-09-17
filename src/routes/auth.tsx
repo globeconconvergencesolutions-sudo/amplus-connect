@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAccount } from "@/hooks/use-auth";
 import { COMPANY } from "@/lib/company";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: z.object({ redirect: z.string().optional() }),
@@ -94,16 +95,8 @@ function AuthPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary/40 px-4 py-16">
       <div className="w-full max-w-md">
-        <Link to="/" className="mb-8 flex items-center justify-center gap-2.5">
-          <span className="surface-amber flex size-9 items-center justify-center rounded-sm font-display text-lg font-extrabold">
-            A
-          </span>
-          <span className="leading-none">
-            <span className="block font-display text-lg font-extrabold tracking-tight">AMPLUS</span>
-            <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {COMPANY.shortName === "Amplus" ? "Construction Solutions" : COMPANY.shortName}
-            </span>
-          </span>
+        <Link to="/" className="mb-8 flex items-center justify-center">
+          <BrandLogo variant="auth" />
         </Link>
 
         <div className="panel p-6 sm:p-8">

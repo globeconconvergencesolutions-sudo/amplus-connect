@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { COMPANY } from "@/lib/company";
+import { BrandLogo } from "@/components/brand-logo";
 
 export function SiteFooter() {
   return (
@@ -8,11 +9,7 @@ export function SiteFooter() {
       <div className="hazard-rule" />
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
         <div className="md:col-span-2">
-          <img
-            src="/amplus-logo.png"
-            alt={COMPANY.name}
-            className="h-10 w-auto max-w-[240px] object-contain object-left brightness-0 invert"
-          />
+          <BrandLogo variant="footer" inverted />
           <p className="mt-5 max-w-md text-sm text-ink-muted">
             Building, civil works and construction materials supply across Kenya. One accountable
             partner from groundbreaking to handover.

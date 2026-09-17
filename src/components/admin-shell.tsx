@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useAccount } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { BrandLogo } from "@/components/brand-logo";
 
 const NAV = [
   { to: "/admin", label: "Dashboard", icon: Home, exact: true },
@@ -77,16 +78,13 @@ export function AdminShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-secondary/30">
       <aside className="surface-ink hidden w-64 shrink-0 flex-col md:flex">
-        <div className="flex items-center gap-2.5 px-5 py-5">
-          <img src="/amplus-mark.png" alt="" className="size-9 rounded-sm object-cover" />
-          <span className="leading-none">
-            <span className="block font-display text-base font-extrabold tracking-tight">
-              AMPLUS
-            </span>
-            <span className="block text-[0.6rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
-              Admin portal
-            </span>
-          </span>
+        <div className="px-5 py-6">
+          <Link to="/" className="block">
+            <BrandLogo variant="admin" inverted />
+          </Link>
+          <p className="mt-2 text-[0.65rem] font-semibold uppercase tracking-[0.22em] text-ink-muted">
+            Admin portal
+          </p>
         </div>
         <nav className="flex-1 space-y-0.5 px-3 py-2">
           {NAV.map((item) => (
@@ -124,7 +122,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
       <div className="flex-1">
         <header className="flex items-center justify-between border-b border-border bg-background px-4 py-3 md:hidden">
-          <span className="font-display text-sm font-extrabold tracking-tight">AMPLUS ADMIN</span>
+          <Link to="/">
+            <BrandLogo variant="header" className="h-10 sm:h-10" />
+          </Link>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => navigate({ to: "/" })}>
               Site

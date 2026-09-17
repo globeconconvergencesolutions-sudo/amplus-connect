@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/lib/cart";
 import { useAccount } from "@/hooks/use-auth";
 import { COMPANY } from "@/lib/company";
+import { BrandLogo } from "@/components/brand-logo";
 
 const NAV = [
   { to: "/services", label: "Services" },
@@ -24,13 +25,9 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link to="/" className="flex items-center gap-2.5" onClick={() => setOpen(false)}>
-          <img
-            src="/amplus-logo.png"
-            alt={COMPANY.name}
-            className="h-8 w-auto max-w-[200px] object-contain object-left"
-          />
+      <div className="mx-auto flex h-[4.75rem] max-w-7xl items-center gap-6 px-4 sm:h-20 sm:px-6">
+        <Link to="/" className="flex shrink-0 items-center" onClick={() => setOpen(false)}>
+          <BrandLogo variant="header" />
         </Link>
 
         <nav className="ml-auto hidden items-center gap-1 lg:flex">
