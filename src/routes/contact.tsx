@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Mail, MapPin, MessageCircle, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, supportLinks } from "@/lib/company";
 
 export const Route = createFileRoute("/contact")({
   component: ContactPage,
@@ -72,6 +72,17 @@ function ContactPage() {
                 <Phone className="mt-0.5 size-5 text-accent" />
                 <a href={`tel:${COMPANY.phone.replace(/\s/g, "")}`} className="hover:text-accent">
                   {COMPANY.phone}
+                </a>
+              </li>
+              <li className="flex items-start gap-3">
+                <MessageCircle className="mt-0.5 size-5 text-accent" />
+                <a
+                  href={supportLinks().whatsappHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-accent"
+                >
+                  WhatsApp us
                 </a>
               </li>
               <li className="flex items-start gap-3">

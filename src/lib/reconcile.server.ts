@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { getToken, getTransactionStatus, mapStatus, pesapalConfigured } from "./pesapal.server";
+import { mapPaystackStatus, paystackConfigured, verifyTransaction } from "./paystack.server";
 import { notifyOrderPaid } from "./order-mail.server";
 
 export type ReconcileResult = {
@@ -11,8 +12,9 @@ export type ReconcileResult = {
 };
 
 /**
- * Idempotently brings an internal order in line with the authoritative
- * Pesapal transaction status. Safe to call from both the callback and the IPN.
+ * Idempotently brings an internal order in line with the gateway.
+ * Paystack is used when the payment was started there (or Paystack is the
+ * only configured PoC gateway); otherwise Pesapal.
  */
 export async function reconcileOrder(
   merchantReference: string,
@@ -31,6 +33,56 @@ export async function reconcileOrder(
     .select("*")
     .eq("merchant_reference", merchantReference)
     .maybeSingle();
+
+  const usePaystack =
+    paystackConfigured() &&
+    (payment?.payment_method === "paystack" || (!payment && paystackConfigured()));
+
+  if (usePaystack) {
+    const charge = await verifyTransaction(merchantReference);
+    const providerStatus = (charge.status ?? "pending").toUpperCase();
+    const internalStatus = mapPaystackStatus(charge.status);
+    const confirmationCode = charge.reference ?? payment?.confirmation_code ?? null;
+    const displayMethod = charge.channel ?? "paystack";
+    const timestampField =
+      source === "ipn" ? { ipn_at: new Date().toISOString() } : { callback_at: new Date().toISOString() };
+
+    if (payment) {
+      await supabaseAdmin
+        .from("payments")
+        .update({
+          payment_method: "paystack",
+          confirmation_code: confirmationCode,
+          provider_status: providerStatus,
+          internal_status: internalStatus,
+          provider_response: JSON.parse(JSON.stringify(charge)),
+          ...timestampField,
+        })
+        .eq("id", payment.id);
+    } else {
+      await supabaseAdmin.from("payments").insert({
+        order_id: order.id,
+        merchant_reference: merchantReference,
+        amount_kes: Number(order.total_kes),
+        payment_method: "paystack",
+        confirmation_code: confirmationCode,
+        provider_status: providerStatus,
+        internal_status: internalStatus,
+        provider_response: JSON.parse(JSON.stringify(charge)),
+        ...timestampField,
+      });
+    }
+
+    await applySettlement(order, merchantReference, internalStatus);
+
+    return {
+      status: settledStatus(order.status, internalStatus),
+      providerStatus,
+      confirmationCode,
+      paymentMethod: displayMethod,
+      merchantReference,
+    };
+  }
 
   const trackingId = orderTrackingIdHint ?? payment?.order_tracking_id ?? null;
   if (!pesapalConfigured() || !trackingId) {
@@ -80,7 +132,35 @@ export async function reconcileOrder(
     });
   }
 
-  // Never move an order backwards out of a settled state.
+  await applySettlement(order, merchantReference, internalStatus);
+
+  return {
+    status: settledStatus(order.status, internalStatus),
+    providerStatus,
+    confirmationCode: status.confirmation_code ?? null,
+    paymentMethod: status.payment_method ?? null,
+    merchantReference,
+  };
+}
+
+function settledStatus(current: string, next: string): string {
+  const settled = ["PAID", "FULFILLED", "SHIPPED", "DELIVERED", "CANCELLED"];
+  if (settled.includes(current) && next !== "PAYMENT_REVERSED") return current;
+  return next;
+}
+
+async function applySettlement(
+  order: {
+    id: string;
+    user_id: string;
+    status: string;
+    total_kes: number | string;
+    points_awarded: boolean | null;
+    customer_email: string | null;
+  },
+  merchantReference: string,
+  internalStatus: ReturnType<typeof mapStatus> | ReturnType<typeof mapPaystackStatus>,
+) {
   const settled = ["PAID", "FULFILLED", "SHIPPED", "DELIVERED", "CANCELLED"];
   if (!settled.includes(order.status) || internalStatus === "PAYMENT_REVERSED") {
     await supabaseAdmin.from("orders").update({ status: internalStatus }).eq("id", order.id);
@@ -109,7 +189,6 @@ export async function reconcileOrder(
     const kesPerPoint = Number(settings?.kes_per_point ?? 100);
     const earned = Math.floor(Number(order.total_kes) / Math.max(kesPerPoint, 1));
 
-    // unique(order_id, kind) makes repeated notifications harmless
     const { error: txError } = await supabaseAdmin.from("loyalty_transactions").insert({
       user_id: order.user_id,
       order_id: order.id,
@@ -140,10 +219,22 @@ export async function reconcileOrder(
       .from("order_items")
       .select("product_name, quantity, line_total_kes")
       .eq("order_id", order.id);
+    const { data: fullOrder } = await supabaseAdmin
+      .from("orders")
+      .select("delivery_option, customer_email")
+      .eq("id", order.id)
+      .maybeSingle();
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("full_name")
+      .eq("id", order.user_id)
+      .maybeSingle();
     await notifyOrderPaid({
       merchantReference,
       totalKes: Number(order.total_kes),
-      customerEmail: order.customer_email,
+      customerEmail: fullOrder?.customer_email ?? order.customer_email,
+      customerName: profile?.full_name ?? null,
+      deliveryOption: fullOrder?.delivery_option ?? null,
       items: (items ?? []).map((item) => ({
         name: item.product_name,
         quantity: item.quantity,
@@ -151,12 +242,15 @@ export async function reconcileOrder(
       })),
     });
   }
+}
 
-  return {
-    status: internalStatus,
-    providerStatus,
-    confirmationCode: status.confirmation_code ?? null,
-    paymentMethod: status.payment_method ?? null,
-    merchantReference,
-  };
+export async function applyPaidOrder(merchantReference: string) {
+  const { data: order } = await supabaseAdmin
+    .from("orders")
+    .select("id, user_id, status, total_kes, points_awarded, merchant_reference, customer_email")
+    .eq("merchant_reference", merchantReference)
+    .maybeSingle();
+  if (!order) throw new Error("Order not found");
+  await applySettlement(order, merchantReference, "PAID");
+  return order;
 }

@@ -4,8 +4,11 @@ import { z } from "zod";
 import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
+import { BankPaymentPanel } from "@/components/bank-payment-panel";
+import { OrderTracking } from "@/components/order-tracking";
 import { verifyPayment } from "@/lib/checkout.functions";
 import { useAccount } from "@/hooks/use-auth";
+import { ORDER_STATUS_LABELS } from "@/lib/format";
 
 export const Route = createFileRoute("/checkout/result")({
   validateSearch: z.object({ ref: z.string() }),
@@ -22,7 +25,7 @@ function CheckoutResultPage() {
     queryFn: () => verifyPayment({ data: { merchantReference: ref } }),
     refetchInterval: (query) => {
       const status = query.state.data?.status;
-      return status === "PAYMENT_PROCESSING" || !status ? 4000 : false;
+      return status === "PENDING_PAYMENT" || status === "PAYMENT_PROCESSING" ? 8000 : false;
     },
   });
 
@@ -31,7 +34,7 @@ function CheckoutResultPage() {
       <PageShell>
         <div className="flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
           <Loader2 className="size-8 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Confirming your payment…</p>
+          <p className="text-sm text-muted-foreground">Loading your order…</p>
         </div>
       </PageShell>
     );
@@ -52,40 +55,62 @@ function CheckoutResultPage() {
     );
   }
 
-  const status = verification.data?.status ?? (verification.error ? "ERROR" : "PAYMENT_PROCESSING");
+  const status = verification.data?.status ?? (verification.error ? "ERROR" : "PENDING_PAYMENT");
   const isPaid =
     status === "PAID" || status === "FULFILLED" || status === "SHIPPED" || status === "DELIVERED";
   const isFailed =
     status === "PAYMENT_FAILED" || status === "PAYMENT_REVERSED" || status === "ERROR";
+  const showBank = status === "PENDING_PAYMENT" || status === "PAYMENT_PROCESSING";
 
   return (
     <PageShell>
-      <div className="mx-auto max-w-lg px-4 py-24 text-center sm:px-6">
-        {isPaid ? (
-          <CheckCircle2 className="mx-auto size-14 text-success" />
-        ) : isFailed ? (
-          <XCircle className="mx-auto size-14 text-destructive" />
-        ) : (
-          <Clock className="mx-auto size-14 text-warning" />
-        )}
+      <div className="mx-auto max-w-lg px-4 py-16 sm:px-6">
+        <div className="text-center">
+          {isPaid ? (
+            <CheckCircle2 className="mx-auto size-14 text-success" />
+          ) : isFailed ? (
+            <XCircle className="mx-auto size-14 text-destructive" />
+          ) : (
+            <Clock className="mx-auto size-14 text-warning" />
+          )}
 
-        <h1 className="mt-6 text-2xl">
-          {isPaid
-            ? "Payment successful"
-            : isFailed
-              ? "Payment did not complete"
-              : "Payment processing"}
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">Order reference: {ref}</p>
-        {verification.data?.confirmationCode ? (
-          <p className="mt-1 text-sm text-muted-foreground">
-            Confirmation code: {verification.data.confirmationCode}
+          <h1 className="mt-6 text-2xl">
+            {isPaid
+              ? "Payment confirmed"
+              : isFailed
+                ? "Payment did not complete"
+                : status === "PAYMENT_PROCESSING"
+                  ? "Waiting for confirmation"
+                  : "Pay by bank transfer"}
+          </h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {ORDER_STATUS_LABELS[status] ?? status}
           </p>
+        </div>
+
+        {isPaid && verification.data ? (
+          <div className="mt-8 rounded-xl border border-border p-5 text-left">
+            <OrderTracking
+              status={status}
+              deliveryOption={verification.data.deliveryOption}
+              fulfilmentNote={verification.data.fulfilmentNote}
+              orderRef={ref}
+            />
+          </div>
         ) : null}
-        {!isPaid && !isFailed ? (
-          <p className="mt-4 text-sm text-muted-foreground">
-            This can take a minute. We'll update this page automatically — feel free to check your
-            account orders later too.
+
+        {showBank && verification.data ? (
+          <BankPaymentPanel
+            merchantReference={ref}
+            amountKes={verification.data.totalKes}
+            status={status}
+            onReported={() => void verification.refetch()}
+          />
+        ) : null}
+
+        {verification.data?.confirmationCode ? (
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Reference you sent: {verification.data.confirmationCode}
           </p>
         ) : null}
 

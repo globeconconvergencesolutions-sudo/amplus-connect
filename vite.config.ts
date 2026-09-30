@@ -14,6 +14,15 @@ export default defineConfig(({ command, mode }) => {
   const envDefine: Record<string, string> = {};
   for (const [key, value] of Object.entries(loadedEnv)) {
     envDefine[`import.meta.env.${key}`] = JSON.stringify(value);
+    envDefine[`process.env.${key}`] = JSON.stringify(value);
+  }
+
+  // Server-only secrets (PESAPAL_*, PAYSTACK_SECRET_KEY, SUPABASE_SERVICE_ROLE_KEY)
+  // aren't VITE_-prefixed, so Vite never puts them on process.env. Load the full
+  // .env into process.env for the dev/preview server; real env vars win.
+  // In production (Cloudflare) these come from the platform's secrets instead.
+  for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ""))) {
+    if (process.env[key] === undefined) process.env[key] = value;
   }
 
   return {

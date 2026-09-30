@@ -21,8 +21,7 @@ const createOrderSchema = z.object({
 });
 
 /**
- * Creates the internal order (server-side pricing) and starts a Pesapal payment.
- * Returns the Pesapal redirect URL to load inside the checkout iframe.
+ * Creates the internal order (server-side pricing) and records a bank-transfer payment.
  */
 export const createOrderAndStartPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -103,7 +102,6 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
       .insert(items.map((item) => ({ ...item, order_id: order.id })));
     if (itemsError) throw new Error(itemsError.message);
 
-    const { pesapalConfigured, getToken, registerIpn, submitOrder } = await import("./pesapal.server");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     if (pointsRedeemed > 0) {
@@ -120,51 +118,30 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
         .eq("id", userId);
     }
 
-    if (!pesapalConfigured()) {
-      return {
-        orderId: order.id,
-        merchantReference,
-        total: Number(order.total_kes),
-        redirectUrl: null as string | null,
-        message:
-          "Payments are not connected yet. The order has been saved and can be paid once the payment keys are added.",
-      };
-    }
+    const email = (claims as { email?: string }).email ?? null;
 
-    const token = await getToken();
-    const notificationId = await registerIpn(token, `${data.origin}/api/public/pesapal/ipn`);
-    const { orderTrackingId, redirectUrl } = await submitOrder(token, {
-      merchantReference,
-      amount: Number(order.total_kes),
-      description: `Amplus order ${merchantReference}`,
-      callbackUrl: `${data.origin}/checkout/result?ref=${merchantReference}`,
-      cancellationUrl: `${data.origin}/cart`,
-      notificationId,
-      email: (claims as { email?: string }).email ?? null,
-      phone: data.address.phone,
-      firstName: profile?.full_name ?? data.address.recipient_name,
-    });
-
-    await supabaseAdmin.from("payments").insert({
+    const { error: paymentError } = await supabaseAdmin.from("payments").insert({
       order_id: order.id,
       merchant_reference: merchantReference,
-      order_tracking_id: orderTrackingId,
       amount_kes: Number(order.total_kes),
+      payment_method: "bank_transfer",
       internal_status: "PENDING_PAYMENT",
     });
+    if (paymentError) throw new Error(paymentError.message);
 
     return {
       orderId: order.id,
       merchantReference,
       total: Number(order.total_kes),
-      redirectUrl,
+      provider: "bank_transfer" as const,
+      email,
+      amountKes: Number(order.total_kes),
       message: null as string | null,
     };
   });
 
 /**
- * Authoritative payment check. The callback is never trusted on its own:
- * the status always comes from Pesapal GetTransactionStatus.
+ * Returns the stored order status. Bank transfers are confirmed by staff, not a gateway.
  */
 export const verifyPayment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -173,12 +150,127 @@ export const verifyPayment = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, status, total_kes, merchant_reference, points_awarded, user_id")
+      .select("id, status, total_kes, merchant_reference, user_id, delivery_option, fulfilment_note")
       .eq("merchant_reference", data.merchantReference)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order || order.user_id !== userId) throw new Error("Order not found");
 
-    const { reconcileOrder } = await import("./reconcile.server");
-    return reconcileOrder(order.merchant_reference, "callback");
+    const { data: payment } = await supabase
+      .from("payments")
+      .select("confirmation_code, payment_method, provider_status, internal_status")
+      .eq("merchant_reference", data.merchantReference)
+      .maybeSingle();
+
+    return {
+      status: order.status,
+      providerStatus: payment?.provider_status ?? payment?.internal_status ?? null,
+      confirmationCode: payment?.confirmation_code ?? null,
+      paymentMethod: payment?.payment_method ?? null,
+      merchantReference: order.merchant_reference,
+      totalKes: Number(order.total_kes),
+      deliveryOption: order.delivery_option,
+      fulfilmentNote: order.fulfilment_note,
+    };
+  });
+
+export const reportBankPaymentSent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        merchantReference: z.string().min(3),
+        confirmationCode: z.string().trim().min(4).max(80),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: order, error } = await supabase
+      .from("orders")
+      .select("id, status, user_id, merchant_reference, total_kes")
+      .eq("merchant_reference", data.merchantReference)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!order || order.user_id !== userId) throw new Error("Order not found");
+
+    const settled = ["PAID", "FULFILLED", "SHIPPED", "DELIVERED", "CANCELLED"];
+    if (settled.includes(order.status)) {
+      return { status: order.status };
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const note = data.confirmationCode.trim();
+    const { error: orderError } = await supabaseAdmin
+      .from("orders")
+      .update({ status: "PAYMENT_PROCESSING" })
+      .eq("id", order.id);
+    if (orderError) throw new Error(orderError.message);
+
+    const paymentPatch = {
+      internal_status: "PAYMENT_PROCESSING" as const,
+      provider_status: "CUSTOMER_REPORTED",
+      confirmation_code: note,
+      payment_method: "bank_transfer",
+      callback_at: new Date().toISOString(),
+    };
+
+    const { data: existing, error: existingError } = await supabaseAdmin
+      .from("payments")
+      .select("id")
+      .eq("order_id", order.id)
+      .maybeSingle();
+    if (existingError) throw new Error(existingError.message);
+
+    if (existing) {
+      const { error: updateError } = await supabaseAdmin
+        .from("payments")
+        .update(paymentPatch)
+        .eq("id", existing.id);
+      if (updateError) throw new Error(updateError.message);
+    } else {
+      const { error: insertError } = await supabaseAdmin.from("payments").insert({
+        order_id: order.id,
+        merchant_reference: order.merchant_reference,
+        amount_kes: Number(order.total_kes),
+        ...paymentPatch,
+      });
+      if (insertError) throw new Error(insertError.message);
+    }
+
+    return { status: "PAYMENT_PROCESSING" as const };
+  });
+
+export const confirmBankPayment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ merchantReference: z.string().min(3) }).parse(data))
+  .handler(async ({ data, context }) => {
+    const { data: roles, error: roleError } = await context.supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", context.userId);
+    if (roleError) throw new Error(roleError.message);
+    if (!(roles ?? []).length) throw new Error("You do not have permission to confirm payments.");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { applyPaidOrder } = await import("./reconcile.server");
+
+    const { data: order } = await supabaseAdmin
+      .from("orders")
+      .select("id, status, merchant_reference")
+      .eq("merchant_reference", data.merchantReference)
+      .maybeSingle();
+    if (!order) throw new Error("Order not found");
+
+    await supabaseAdmin
+      .from("payments")
+      .update({
+        payment_method: "bank_transfer",
+        internal_status: "PAID",
+        provider_status: "STAFF_CONFIRMED",
+        ipn_at: new Date().toISOString(),
+      })
+      .eq("merchant_reference", data.merchantReference);
+
+    await applyPaidOrder(data.merchantReference);
+    return { status: "PAID" as const, merchantReference: data.merchantReference };
   });

@@ -20,7 +20,7 @@ type CartContextValue = {
   clear: () => void;
 };
 
-const STORAGE_KEY = "amplus.cart.v1";
+export const CART_STORAGE_KEY = "amplus.cart.v1";
 const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
@@ -29,7 +29,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const raw = window.localStorage.getItem(CART_STORAGE_KEY);
       if (raw) setLines(JSON.parse(raw) as CartLine[]);
     } catch {
       /* ignore malformed cart */
@@ -39,7 +39,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(lines));
   }, [lines, hydrated]);
 
   const value = useMemo<CartContextValue>(() => {
@@ -65,7 +65,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
             ? current.filter((item) => item.productId !== productId)
             : current.map((item) => (item.productId === productId ? { ...item, quantity } : item)),
         ),
-      remove: (productId) => setLines((current) => current.filter((i) => i.productId !== productId)),
+      remove: (productId) =>
+        setLines((current) => current.filter((i) => i.productId !== productId)),
       clear: () => setLines([]),
     };
   }, [lines]);

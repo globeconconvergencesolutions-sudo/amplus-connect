@@ -7,6 +7,7 @@ import {
   Gift,
   Home,
   Layers,
+  LifeBuoy,
   Loader2,
   Mail,
   Package,
@@ -15,8 +16,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useAccount } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
+import { useAccount, useSignOut } from "@/hooks/use-auth";
 import { BrandLogo } from "@/components/brand-logo";
 
 const NAV = [
@@ -27,6 +27,7 @@ const NAV = [
   { to: "/admin/projects", label: "Projects", icon: Boxes },
   { to: "/admin/posts", label: "Insights", icon: FileText },
   { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
   { to: "/admin/customers", label: "Customers", icon: Users },
   { to: "/admin/messages", label: "Messages", icon: Mail },
   { to: "/admin/rewards", label: "Rewards", icon: Gift },
@@ -35,6 +36,7 @@ const NAV = [
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const { user, profile, roles, isStaff, loading } = useAccount();
+  const { signOut, signingOut } = useSignOut();
   const navigate = useNavigate();
 
   if (loading) {
@@ -68,11 +70,6 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     );
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    window.location.href = "/";
   }
 
   return (
@@ -112,7 +109,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
               variant="ghost"
               size="sm"
               className="text-ink-muted hover:text-ink-foreground"
-              onClick={signOut}
+              onClick={() => void signOut()}
+              disabled={signingOut}
             >
               Sign out
             </Button>
@@ -129,7 +127,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <Button variant="outline" size="sm" onClick={() => navigate({ to: "/" })}>
               Site
             </Button>
-            <Button variant="ghost" size="sm" onClick={signOut}>
+            <Button variant="ghost" size="sm" onClick={() => void signOut()} disabled={signingOut}>
               Sign out
             </Button>
           </div>

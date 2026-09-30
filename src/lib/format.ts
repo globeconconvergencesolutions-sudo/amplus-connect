@@ -29,6 +29,17 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
   REFUND_REQUESTED: "Refund requested",
 };
 
+export function orderHeadline(
+  items: { product_name: string; quantity?: number }[] | null | undefined,
+  fallback = "Order",
+) {
+  const list = Array.isArray(items) ? items : [];
+  if (list.length === 0) return fallback;
+  const first = list[0]?.product_name ?? fallback;
+  if (list.length === 1) return first;
+  return `${first} +${list.length - 1} more`;
+}
+
 export function tierLabel(tier: string | null | undefined) {
   if (!tier) return "Bronze";
   return tier.charAt(0).toUpperCase() + tier.slice(1);

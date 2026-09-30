@@ -86,7 +86,7 @@ export function SiteFooter() {
               </Link>
             </li>
           </ul>
-          <p className="mt-6 text-xs text-ink-muted">Pay with M-Pesa or card via Pesapal.</p>
+          <p className="mt-6 text-xs text-ink-muted">Pay by Equity Bank transfer using your order number.</p>
         </div>
       </div>
       <div className="border-t border-ink-muted/20">

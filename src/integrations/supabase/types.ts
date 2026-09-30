@@ -127,6 +127,88 @@ export type Database = {
         }
         Relationships: []
       }
+      support_ticket_messages: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          from_staff: boolean
+          id: string
+          ticket_id: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          from_staff?: boolean
+          id?: string
+          ticket_id: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          from_staff?: boolean
+          id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          merchant_reference: string | null
+          order_id: string | null
+          status: string
+          subject: string | null
+          ticket_number: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          merchant_reference?: string | null
+          order_id?: string | null
+          status?: string
+          subject?: string | null
+          ticket_number: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          merchant_reference?: string | null
+          order_id?: string | null
+          status?: string
+          subject?: string | null
+          ticket_number?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       loyalty_settings: {
         Row: {
           gold_threshold: number
@@ -257,6 +339,11 @@ export type Database = {
           merchant_reference: string
           points_awarded: boolean
           points_redeemed: number
+          reminder_sent_at: string | null
+          cancelled_at: string | null
+          prepared_at: string | null
+          shipped_at: string | null
+          delivered_at: string | null
           stock_applied: boolean
           status: Database["public"]["Enums"]["order_status"]
           subtotal_kes: number
@@ -277,6 +364,11 @@ export type Database = {
           merchant_reference: string
           points_awarded?: boolean
           points_redeemed?: number
+          reminder_sent_at?: string | null
+          cancelled_at?: string | null
+          prepared_at?: string | null
+          shipped_at?: string | null
+          delivered_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           stock_applied?: boolean
           subtotal_kes?: number
@@ -297,6 +389,11 @@ export type Database = {
           merchant_reference?: string
           points_awarded?: boolean
           points_redeemed?: number
+          reminder_sent_at?: string | null
+          cancelled_at?: string | null
+          prepared_at?: string | null
+          shipped_at?: string | null
+          delivered_at?: string | null
           status?: Database["public"]["Enums"]["order_status"]
           stock_applied?: boolean
           subtotal_kes?: number
@@ -702,6 +799,10 @@ export type Database = {
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       apply_order_stock: { Args: { p_order_id: string }; Returns: undefined }
       reverse_order_stock: { Args: { p_order_id: string }; Returns: undefined }
+      cancel_unpaid_order: {
+        Args: { p_allow_processing?: boolean; p_order_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

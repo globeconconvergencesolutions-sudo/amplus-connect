@@ -12,7 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { formatKes } from "@/lib/format";
 import { useCart } from "@/lib/cart";
 import { useAccount } from "@/hooks/use-auth";
-import { DELIVERY_OPTIONS } from "@/lib/company";
+import { CHECKOUT_PAYMENT_NOTE, DELIVERY_OPTIONS } from "@/lib/company";
 import { loyaltySettingsQuery } from "@/lib/catalog";
 import { createOrderAndStartPayment } from "@/lib/checkout.functions";
 
@@ -125,13 +125,7 @@ function CheckoutPage() {
       });
 
       clear();
-
-      if (result.redirectUrl) {
-        window.location.href = result.redirectUrl;
-        return;
-      }
-
-      toast.success(result.message ?? "Order placed.");
+      toast.success("Order placed. Transfer using the bank details on the next page.");
       navigate({ to: "/checkout/result", search: { ref: result.merchantReference } });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not place your order.");
@@ -282,11 +276,9 @@ function CheckoutPage() {
               disabled={submitting}
             >
               {submitting ? <Loader2 className="animate-spin" /> : <ArrowRight />}
-              {submitting ? "Placing order…" : "Pay with M-Pesa / card"}
+              {submitting ? "Placing order…" : "Place order"}
             </Button>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
-              Payments are processed securely by Pesapal. You'll be redirected to complete payment.
-            </p>
+            <p className="mt-3 text-center text-xs text-muted-foreground">{CHECKOUT_PAYMENT_NOTE}</p>
           </div>
         </form>
       </section>

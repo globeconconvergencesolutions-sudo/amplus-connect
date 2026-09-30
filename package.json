@@ -10,7 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "seed:admin": "node --env-file=.env scripts/seed-super-admin.mjs"
+    "seed:admin": "node --env-file=.env scripts/seed-super-admin.mjs",
+    "apply:support-tickets": "node --env-file=.env scripts/apply-support-tickets.mjs",
+    "apply:order-cancel": "node --env-file=.env scripts/apply-order-cancel.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -56,6 +58,7 @@
     "embla-carousel-react": "^8.6.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.575.0",
+    "nodemailer": "^10.0.12",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
@@ -74,6 +77,7 @@
     "@eslint/js": "^9.32.0",
     "@tanstack/devtools-vite": "^0.8.5",
     "@types/node": "^22.16.5",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",

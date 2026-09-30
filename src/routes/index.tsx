@@ -27,8 +27,8 @@ const HIGHLIGHTS = [
   },
   {
     icon: Wallet,
-    title: "M-Pesa & card",
-    body: "Secure checkout powered by Pesapal, with loyalty rewards.",
+    title: "Bank transfer",
+    body: "Pay to Equity Bank with your order number, then we confirm and deliver.",
   },
   {
     icon: ShieldCheck,
@@ -135,7 +135,7 @@ function Index() {
             </h2>
             <p className="mt-4 max-w-md text-sm text-ink-muted md:text-base">
               Cement, steel, roofing, finishes, plumbing and tools with transparent pricing.
-              Checkout securely with M-Pesa or card through Pesapal and earn loyalty points on every
+              Pay by Equity Bank transfer using your order number and earn loyalty points on every
               order.
             </p>
             <Button variant="hero" size="lg" className="mt-7" asChild>

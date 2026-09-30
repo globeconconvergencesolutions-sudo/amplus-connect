@@ -1,10 +1,28 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Menu, ShoppingCart, User, X } from "lucide-react";
+import {
+  Gift,
+  Heart,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  ShoppingCart,
+  User,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useCart } from "@/lib/cart";
-import { useAccount } from "@/hooks/use-auth";
+import { useAccount, useSignOut } from "@/hooks/use-auth";
 import { COMPANY } from "@/lib/company";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -19,7 +37,9 @@ const NAV = [
 
 export function SiteHeader() {
   const { count } = useCart();
-  const { user, isStaff } = useAccount();
+  const { user, profile, isStaff } = useAccount();
+  const { signOut, signingOut } = useSignOut();
+  const displayName = profile?.full_name || user?.email || "My account";
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
@@ -55,11 +75,66 @@ export function SiteHeader() {
           </Button>
 
           {user ? (
-            <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
-              <Link to={isStaff ? "/admin" : "/account"}>
-                <User /> {isStaff ? "Admin" : "My account"}
-              </Link>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="hidden max-w-48 sm:inline-flex"
+                  aria-label="Account menu"
+                >
+                  <User />
+                  <span className="truncate">{profile?.full_name?.split(" ")[0] || "Account"}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="truncate text-sm font-semibold">{displayName}</p>
+                  {profile?.full_name && user.email ? (
+                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                  ) : null}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isStaff ? (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin">
+                      <LayoutDashboard /> Admin portal
+                    </Link>
+                  </DropdownMenuItem>
+                ) : null}
+                <DropdownMenuItem asChild>
+                  <Link to="/account">
+                    <User /> My account
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account" search={{ tab: "orders" }}>
+                    <Package /> My orders
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account" search={{ tab: "wishlist" }}>
+                    <Heart /> Wishlist
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account" search={{ tab: "rewards" }}>
+                    <Gift /> Rewards
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={signingOut}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    void signOut();
+                  }}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <LogOut /> {signingOut ? "Signing out…" : "Sign out"}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Button
               variant="accent"
@@ -96,13 +171,53 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
-            <Link
-              to={user ? (isStaff ? "/admin" : "/account") : "/auth"}
-              onClick={() => setOpen(false)}
-              className="py-3 text-sm font-semibold text-accent"
-            >
-              {user ? (isStaff ? "Admin portal" : "My account") : "Sign in or register"}
-            </Link>
+            {user ? (
+              <>
+                <p className="pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Signed in as <span className="normal-case tracking-normal">{displayName}</span>
+                </p>
+                {isStaff ? (
+                  <Link
+                    to="/admin"
+                    onClick={() => setOpen(false)}
+                    className="border-b border-border/60 py-3 text-sm font-semibold text-accent"
+                  >
+                    Admin portal
+                  </Link>
+                ) : null}
+                <Link
+                  to="/account"
+                  onClick={() => setOpen(false)}
+                  className="border-b border-border/60 py-3 text-sm font-semibold text-accent"
+                >
+                  My account
+                </Link>
+                <Link
+                  to="/account"
+                  search={{ tab: "orders" }}
+                  onClick={() => setOpen(false)}
+                  className="border-b border-border/60 py-3 text-sm font-semibold"
+                >
+                  My orders
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void signOut()}
+                  disabled={signingOut}
+                  className="flex items-center gap-2 border-b border-border/60 py-3 text-left text-sm font-semibold text-destructive disabled:opacity-60"
+                >
+                  <LogOut className="size-4" /> {signingOut ? "Signing out…" : "Sign out"}
+                </button>
+              </>
+            ) : (
+              <Link
+                to="/auth"
+                onClick={() => setOpen(false)}
+                className="py-3 text-sm font-semibold text-accent"
+              >
+                Sign in or register
+              </Link>
+            )}
             <a
               href={`tel:${COMPANY.phone.replace(/\s/g, "")}`}
               className="py-3 text-sm text-muted-foreground"

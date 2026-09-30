@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { profileQuery, rolesQuery } from "@/lib/account";
+import { CART_STORAGE_KEY, useCart } from "@/lib/cart";
 
 export function useSession() {
   const [session, setSession] = useState<Session | null>(null);
@@ -26,6 +28,32 @@ export function useSession() {
   }, []);
 
   return { session, user: session?.user ?? null, loading };
+}
+
+/**
+ * Signs the current user out on this device and returns them to the home page.
+ * A full page load (not client navigation) guarantees no cached profile, order
+ * or admin data from the previous session survives in React Query. The cart is
+ * cleared too so the next person on a shared device doesn't inherit it.
+ */
+export function useSignOut() {
+  const { clear } = useCart();
+  const [signingOut, setSigningOut] = useState(false);
+
+  const signOut = useCallback(async () => {
+    setSigningOut(true);
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (error) {
+      setSigningOut(false);
+      toast.error("Couldn't sign you out. Check your connection and try again.");
+      return;
+    }
+    clear();
+    window.localStorage.removeItem(CART_STORAGE_KEY);
+    window.location.assign("/");
+  }, [clear]);
+
+  return { signOut, signingOut };
 }
 
 export function useAccount() {

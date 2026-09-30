@@ -1,5 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isMissingRelation } from "@/lib/supabase-errors";
+import { listMyTickets } from "@/lib/support.functions";
 
 export type Profile = {
   id: string;
@@ -75,6 +77,30 @@ export const wishlistQuery = (userId: string | undefined) =>
         .from("wishlist_items")
         .select("id, product_id, products(*)")
         .eq("user_id", userId!);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+export const ticketsQuery = (userId: string | undefined) =>
+  queryOptions({
+    queryKey: ["support-tickets", userId],
+    enabled: Boolean(userId),
+    retry: false,
+    queryFn: () => listMyTickets(),
+  });
+
+export const ticketMessagesQuery = (ticketId: string | undefined) =>
+  queryOptions({
+    queryKey: ["support-ticket-messages", ticketId],
+    enabled: Boolean(ticketId),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("support_ticket_messages")
+        .select("*")
+        .eq("ticket_id", ticketId!)
+        .order("created_at", { ascending: true });
+      if (isMissingRelation(error)) return [];
       if (error) throw new Error(error.message);
       return data ?? [];
     },

@@ -36,6 +36,9 @@ import { Route as AdminProjectsIndexRouteImport } from './routes/admin/projects/
 import { Route as AdminRewardsIndexRouteImport } from './routes/admin/rewards/index'
 import { Route as AdminRolesIndexRouteImport } from './routes/admin/roles/index'
 import { Route as AdminServicesIndexRouteImport } from './routes/admin/services/index'
+import { Route as AdminTicketsIndexRouteImport } from './routes/admin/tickets/index'
+import { Route as ApiCronOrderRemindersRouteImport } from './routes/api/cron/order-reminders'
+import { Route as ApiPublicPaystackWebhookRouteImport } from './routes/api/public/paystack/webhook'
 import { Route as ApiPublicPesapalIpnRouteImport } from './routes/api/public/pesapal/ipn'
 
 const IndexRoute = IndexRouteImport.update({
@@ -173,6 +176,22 @@ const AdminServicesIndexRoute = AdminServicesIndexRouteImport.update({
   path: '/admin/services/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminTicketsIndexRoute = AdminTicketsIndexRouteImport.update({
+  id: '/admin/tickets/',
+  path: '/admin/tickets/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCronOrderRemindersRoute = ApiCronOrderRemindersRouteImport.update({
+  id: '/api/cron/order-reminders',
+  path: '/api/cron/order-reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicPaystackWebhookRoute =
+  ApiPublicPaystackWebhookRouteImport.update({
+    id: '/api/public/paystack/webhook',
+    path: '/api/public/paystack/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicPesapalIpnRoute = ApiPublicPesapalIpnRouteImport.update({
   id: '/api/public/pesapal/ipn',
   path: '/api/public/pesapal/ipn',
@@ -197,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/products/': typeof ProductsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/services/': typeof ServicesIndexRoute
+  '/api/cron/order-reminders': typeof ApiCronOrderRemindersRoute
   '/admin/categories/': typeof AdminCategoriesIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/messages/': typeof AdminMessagesIndexRoute
@@ -207,6 +227,8 @@ export interface FileRoutesByFullPath {
   '/admin/rewards/': typeof AdminRewardsIndexRoute
   '/admin/roles/': typeof AdminRolesIndexRoute
   '/admin/services/': typeof AdminServicesIndexRoute
+  '/admin/tickets/': typeof AdminTicketsIndexRoute
+  '/api/public/paystack/webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/pesapal/ipn': typeof ApiPublicPesapalIpnRoute
 }
 export interface FileRoutesByTo {
@@ -227,6 +249,7 @@ export interface FileRoutesByTo {
   '/products': typeof ProductsIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/services': typeof ServicesIndexRoute
+  '/api/cron/order-reminders': typeof ApiCronOrderRemindersRoute
   '/admin/categories': typeof AdminCategoriesIndexRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
   '/admin/messages': typeof AdminMessagesIndexRoute
@@ -237,6 +260,8 @@ export interface FileRoutesByTo {
   '/admin/rewards': typeof AdminRewardsIndexRoute
   '/admin/roles': typeof AdminRolesIndexRoute
   '/admin/services': typeof AdminServicesIndexRoute
+  '/admin/tickets': typeof AdminTicketsIndexRoute
+  '/api/public/paystack/webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/pesapal/ipn': typeof ApiPublicPesapalIpnRoute
 }
 export interface FileRoutesById {
@@ -258,6 +283,7 @@ export interface FileRoutesById {
   '/products/': typeof ProductsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/services/': typeof ServicesIndexRoute
+  '/api/cron/order-reminders': typeof ApiCronOrderRemindersRoute
   '/admin/categories/': typeof AdminCategoriesIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
   '/admin/messages/': typeof AdminMessagesIndexRoute
@@ -268,6 +294,8 @@ export interface FileRoutesById {
   '/admin/rewards/': typeof AdminRewardsIndexRoute
   '/admin/roles/': typeof AdminRolesIndexRoute
   '/admin/services/': typeof AdminServicesIndexRoute
+  '/admin/tickets/': typeof AdminTicketsIndexRoute
+  '/api/public/paystack/webhook': typeof ApiPublicPaystackWebhookRoute
   '/api/public/pesapal/ipn': typeof ApiPublicPesapalIpnRoute
 }
 export interface FileRouteTypes {
@@ -290,6 +318,7 @@ export interface FileRouteTypes {
     | '/products/'
     | '/projects/'
     | '/services/'
+    | '/api/cron/order-reminders'
     | '/admin/categories/'
     | '/admin/customers/'
     | '/admin/messages/'
@@ -300,6 +329,8 @@ export interface FileRouteTypes {
     | '/admin/rewards/'
     | '/admin/roles/'
     | '/admin/services/'
+    | '/admin/tickets/'
+    | '/api/public/paystack/webhook'
     | '/api/public/pesapal/ipn'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -320,6 +351,7 @@ export interface FileRouteTypes {
     | '/products'
     | '/projects'
     | '/services'
+    | '/api/cron/order-reminders'
     | '/admin/categories'
     | '/admin/customers'
     | '/admin/messages'
@@ -330,6 +362,8 @@ export interface FileRouteTypes {
     | '/admin/rewards'
     | '/admin/roles'
     | '/admin/services'
+    | '/admin/tickets'
+    | '/api/public/paystack/webhook'
     | '/api/public/pesapal/ipn'
   id:
     | '__root__'
@@ -350,6 +384,7 @@ export interface FileRouteTypes {
     | '/products/'
     | '/projects/'
     | '/services/'
+    | '/api/cron/order-reminders'
     | '/admin/categories/'
     | '/admin/customers/'
     | '/admin/messages/'
@@ -360,6 +395,8 @@ export interface FileRouteTypes {
     | '/admin/rewards/'
     | '/admin/roles/'
     | '/admin/services/'
+    | '/admin/tickets/'
+    | '/api/public/paystack/webhook'
     | '/api/public/pesapal/ipn'
   fileRoutesById: FileRoutesById
 }
@@ -381,6 +418,7 @@ export interface RootRouteChildren {
   ProductsIndexRoute: typeof ProductsIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   ServicesIndexRoute: typeof ServicesIndexRoute
+  ApiCronOrderRemindersRoute: typeof ApiCronOrderRemindersRoute
   AdminCategoriesIndexRoute: typeof AdminCategoriesIndexRoute
   AdminCustomersIndexRoute: typeof AdminCustomersIndexRoute
   AdminMessagesIndexRoute: typeof AdminMessagesIndexRoute
@@ -391,6 +429,8 @@ export interface RootRouteChildren {
   AdminRewardsIndexRoute: typeof AdminRewardsIndexRoute
   AdminRolesIndexRoute: typeof AdminRolesIndexRoute
   AdminServicesIndexRoute: typeof AdminServicesIndexRoute
+  AdminTicketsIndexRoute: typeof AdminTicketsIndexRoute
+  ApiPublicPaystackWebhookRoute: typeof ApiPublicPaystackWebhookRoute
   ApiPublicPesapalIpnRoute: typeof ApiPublicPesapalIpnRoute
 }
 
@@ -585,6 +625,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminServicesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/tickets/': {
+      id: '/admin/tickets/'
+      path: '/admin/tickets'
+      fullPath: '/admin/tickets/'
+      preLoaderRoute: typeof AdminTicketsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/cron/order-reminders': {
+      id: '/api/cron/order-reminders'
+      path: '/api/cron/order-reminders'
+      fullPath: '/api/cron/order-reminders'
+      preLoaderRoute: typeof ApiCronOrderRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/paystack/webhook': {
+      id: '/api/public/paystack/webhook'
+      path: '/api/public/paystack/webhook'
+      fullPath: '/api/public/paystack/webhook'
+      preLoaderRoute: typeof ApiPublicPaystackWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/pesapal/ipn': {
       id: '/api/public/pesapal/ipn'
       path: '/api/public/pesapal/ipn'
@@ -613,6 +674,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProductsIndexRoute: ProductsIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   ServicesIndexRoute: ServicesIndexRoute,
+  ApiCronOrderRemindersRoute: ApiCronOrderRemindersRoute,
   AdminCategoriesIndexRoute: AdminCategoriesIndexRoute,
   AdminCustomersIndexRoute: AdminCustomersIndexRoute,
   AdminMessagesIndexRoute: AdminMessagesIndexRoute,
@@ -623,6 +685,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRewardsIndexRoute: AdminRewardsIndexRoute,
   AdminRolesIndexRoute: AdminRolesIndexRoute,
   AdminServicesIndexRoute: AdminServicesIndexRoute,
+  AdminTicketsIndexRoute: AdminTicketsIndexRoute,
+  ApiPublicPaystackWebhookRoute: ApiPublicPaystackWebhookRoute,
   ApiPublicPesapalIpnRoute: ApiPublicPesapalIpnRoute,
 }
 export const routeTree = rootRouteImport

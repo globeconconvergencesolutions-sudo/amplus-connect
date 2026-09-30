@@ -370,6 +370,78 @@ create policy "anyone can send" on public.contact_messages for insert to anon, a
 create policy "staff read messages" on public.contact_messages for select to authenticated using (public.is_staff(auth.uid()));
 create policy "staff update messages" on public.contact_messages for update to authenticated using (public.is_staff(auth.uid()));
 
+-- support tickets
+create table public.support_tickets (
+  id uuid primary key default gen_random_uuid(),
+  ticket_number text not null unique,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  order_id uuid references public.orders(id) on delete set null,
+  merchant_reference text,
+  subject text,
+  kind text not null default 'general'
+    check (kind in ('payment_verification', 'general')),
+  status text not null default 'open'
+    check (status in ('open', 'waiting_on_us', 'waiting_on_you', 'resolved')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table public.support_ticket_messages (
+  id uuid primary key default gen_random_uuid(),
+  ticket_id uuid not null references public.support_tickets(id) on delete cascade,
+  author_id uuid not null references public.profiles(id) on delete cascade,
+  from_staff boolean not null default false,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+create index support_tickets_user_id_idx on public.support_tickets (user_id);
+create index support_tickets_status_idx on public.support_tickets (status);
+create index support_ticket_messages_ticket_id_idx on public.support_ticket_messages (ticket_id);
+
+grant select, insert, update on public.support_tickets to authenticated;
+grant select, insert on public.support_ticket_messages to authenticated;
+grant all on public.support_tickets to service_role;
+grant all on public.support_ticket_messages to service_role;
+
+alter table public.support_tickets enable row level security;
+alter table public.support_ticket_messages enable row level security;
+
+create policy "own or staff tickets read" on public.support_tickets
+  for select to authenticated
+  using (auth.uid() = user_id or public.is_staff(auth.uid()));
+
+create policy "own tickets insert" on public.support_tickets
+  for insert to authenticated
+  with check (auth.uid() = user_id);
+
+create policy "staff tickets update" on public.support_tickets
+  for update to authenticated
+  using (public.is_staff(auth.uid()));
+
+create policy "ticket messages read" on public.support_ticket_messages
+  for select to authenticated
+  using (
+    public.is_staff(auth.uid())
+    or exists (
+      select 1 from public.support_tickets t
+      where t.id = ticket_id and t.user_id = auth.uid()
+    )
+  );
+
+create policy "ticket messages insert" on public.support_ticket_messages
+  for insert to authenticated
+  with check (
+    auth.uid() = author_id
+    and (
+      public.is_staff(auth.uid())
+      or exists (
+        select 1 from public.support_tickets t
+        where t.id = ticket_id and t.user_id = auth.uid()
+      )
+    )
+  );
+
 -- seed content
 insert into public.categories (name, slug, description, sort_order) values
   ('Cement & Aggregates','cement-aggregates','Cement, ballast, sand and hardcore',1),
@@ -536,3 +608,124 @@ revoke all on function public.apply_order_stock(uuid) from public, anon, authent
 revoke all on function public.reverse_order_stock(uuid) from public, anon, authenticated;
 grant execute on function public.apply_order_stock(uuid) to service_role;
 grant execute on function public.reverse_order_stock(uuid) to service_role;
+
+alter table public.orders
+  add column if not exists cancelled_at timestamptz,
+  add column if not exists reminder_sent_at timestamptz,
+  add column if not exists prepared_at timestamptz,
+  add column if not exists shipped_at timestamptz,
+  add column if not exists delivered_at timestamptz;
+
+create index if not exists orders_unpaid_reminder_idx
+  on public.orders (created_at)
+  where status = 'PENDING_PAYMENT' and reminder_sent_at is null;
+
+create or replace function public.cancel_unpaid_order(
+  p_order_id uuid,
+  p_allow_processing boolean default false
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  o public.orders%rowtype;
+  restored integer := 0;
+  items jsonb;
+begin
+  select * into o
+  from public.orders
+  where id = p_order_id
+  for update;
+
+  if not found then
+    raise exception 'Order not found';
+  end if;
+
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'product_id', oi.product_id,
+        'product_name', oi.product_name,
+        'quantity', oi.quantity,
+        'unit_price_kes', oi.unit_price_kes
+      )
+      order by oi.created_at
+    ),
+    '[]'::jsonb
+  )
+  into items
+  from public.order_items oi
+  where oi.order_id = p_order_id;
+
+  if o.status = 'CANCELLED' then
+    return jsonb_build_object(
+      'ok', true,
+      'already', true,
+      'points_restored', 0,
+      'merchant_reference', o.merchant_reference,
+      'items', items
+    );
+  end if;
+
+  if o.status in ('PAID', 'FULFILLED', 'SHIPPED', 'DELIVERED', 'REFUND_REQUESTED') then
+    raise exception 'This order is already paid or fulfilled and cannot be cancelled';
+  end if;
+
+  if o.status = 'PAYMENT_PROCESSING' and not p_allow_processing then
+    raise exception 'This order is waiting for payment confirmation';
+  end if;
+
+  if o.status not in ('PENDING_PAYMENT', 'PAYMENT_FAILED', 'PAYMENT_PROCESSING', 'PAYMENT_REVERSED') then
+    raise exception 'This order cannot be cancelled';
+  end if;
+
+  perform public.reverse_order_stock(p_order_id);
+
+  if o.points_redeemed > 0
+     and not exists (
+       select 1
+       from public.loyalty_transactions lt
+       where lt.order_id = p_order_id
+         and lt.kind = 'redeem_restored'
+     ) then
+    update public.profiles
+    set loyalty_points = loyalty_points + o.points_redeemed
+    where id = o.user_id;
+    insert into public.loyalty_transactions (user_id, order_id, points, kind, note)
+    values (
+      o.user_id,
+      p_order_id,
+      o.points_redeemed,
+      'redeem_restored',
+      'Restored after cancelling ' || o.merchant_reference
+    );
+    restored := o.points_redeemed;
+  end if;
+
+  update public.payments
+  set
+    internal_status = 'CANCELLED',
+    provider_status = coalesce(provider_status, 'CANCELLED'),
+    updated_at = now()
+  where order_id = p_order_id;
+
+  update public.orders
+  set
+    status = 'CANCELLED',
+    cancelled_at = now()
+  where id = p_order_id;
+
+  return jsonb_build_object(
+    'ok', true,
+    'already', false,
+    'points_restored', restored,
+    'merchant_reference', o.merchant_reference,
+    'items', items
+  );
+end;
+$$;
+
+revoke all on function public.cancel_unpaid_order(uuid, boolean) from public, anon, authenticated;
+grant execute on function public.cancel_unpaid_order(uuid, boolean) to service_role;
