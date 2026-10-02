@@ -4,7 +4,7 @@
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>Under Maintenance</title>
-	<meta name="description" content="This website is currently under maintenance. Please check back soon.">
+	<meta name="description" content="This website is currently under maintenance.">
 	<meta name="theme-color" content="#09101e">
 	<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2309101e'/%3E%3Cpath d='M8 6 L58 6 L58 26Z' fill='%238ebe20'/%3E%3Cpath d='M28 14 L58 26 L38 58Z' fill='%23019be0'/%3E%3C/svg%3E">
 	<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -161,23 +161,6 @@
 			color: #8fa3bf;
 		}
 
-		.contact {
-			display: inline-flex;
-			align-items: center;
-			gap: 12px;
-			margin-top: 1rem;
-			padding: 12px 18px;
-			border-radius: 12px;
-			border: 1px solid rgba(1, 155, 224, 0.35);
-			background: rgba(1, 155, 224, 0.08);
-			text-decoration: none;
-			font-weight: 500;
-			color: #fff;
-			word-break: break-all;
-			transition: border-color 250ms, background 250ms, color 250ms;
-		}
-		.contact svg { width: 20px; height: 20px; flex: none; color: #019be0; }
-		.contact:hover { color: #fff; border-color: #019be0; background: rgba(1, 155, 224, 0.16); }
 
 		hr {
 			margin-block: 2.25rem;
@@ -267,11 +250,11 @@
 
 			<div class="reveal">
 				<h1 class="domainname">Our website</h1>
-				<h2>We'll Be Back Shortly!</h2>
+				<h2>Our Website Is Under Maintenance</h2>
 			</div>
 
 			<div class="reveal">
-				<p class="lead">We're currently carrying out scheduled maintenance on <span class="domainname">our website</span> to bring you a faster, better experience.</p>
+				<p class="lead">We're making improvements to <span class="domainname">our website</span> to bring you a better experience.</p>
 				<div class="working" role="img" aria-label="Maintenance in progress">
 					<div class="working__bar"></div>
 					<div class="working__label">Maintenance in progress&hellip;</div>
@@ -280,16 +263,9 @@
 
 			<div class="reveal block">
 				<h3>What's Happening?</h3>
-				<p>Our team is busy making improvements behind the scenes.<br>Thank you for your patience. Please check back soon!</p>
+				<p>Our team is working on upgrades behind the scenes.<br>Thank you for your patience while we make things better.</p>
 			</div>
 
-			<div class="reveal block" id="contactBlock" hidden>
-				<h3>Need to Reach Us?</h3>
-				<a class="contact" id="contactLink" href="#">
-					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg>
-					<span id="contactEmail"></span>
-				</a>
-			</div>
 
 			<div class="reveal">
 				<hr>
@@ -316,12 +292,6 @@
 
 	<script>
 		(function () {
-			// Contact email per domain. Add more lines here if this page is used on other sites.
-			var EMAILS = {
-				'amplusinternational.com': 'info@amplusinternational.com',
-				'amplusconstructionsolutions.com': 'dm@amplusconstructionsolutions.com'
-			};
-
 			var host = (location.hostname || '').replace(/^www\./, '');
 			if (host) {
 				document.querySelectorAll('.domainname').forEach(function (el) { el.textContent = host; });
@@ -341,13 +311,6 @@
 			fit();
 			window.addEventListener('resize', fit);
 			if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-
-			var email = EMAILS[host];
-			if (email) {
-				document.getElementById('contactEmail').textContent = email;
-				document.getElementById('contactLink').href = 'mailto:' + email;
-				document.getElementById('contactBlock').hidden = false;
-			}
 		})();
 	</script>
 </body>
