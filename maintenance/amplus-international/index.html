@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AMPlus International - Under Maintenance</title>
+    <meta name="description" content="AMPlus International is upgrading its website. Please check back soon.">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background:
+                radial-gradient(600px 400px at 50% 0%, rgba(59, 130, 246, 0.18), transparent 70%),
+                #0f172a;
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 24px 20px 80px;
+            text-align: center;
+        }
+        .card {
+            background: #1e293b;
+            padding: 3rem 2.5rem;
+            border-radius: 18px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            max-width: 520px;
+            width: 100%;
+            border: 1px solid #334155;
+        }
+        .icon {
+            width: 56px;
+            height: 56px;
+            margin: 0 auto 1.5rem;
+            display: grid;
+            place-items: center;
+            border-radius: 14px;
+            background: rgba(59, 130, 246, 0.12);
+            color: #60a5fa;
+        }
+        .icon svg {
+            width: 28px;
+            height: 28px;
+            animation: spin 6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(59, 130, 246, 0.15);
+            color: #60a5fa;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 1.25rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #60a5fa;
+            animation: pulse 1.6s ease-in-out infinite;
+        }
+        @keyframes pulse { 50% { opacity: 0.3; } }
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+        }
+        p {
+            color: #94a3b8;
+            line-height: 1.65;
+            margin-bottom: 1.75rem;
+            font-size: 1.02rem;
+        }
+        .contact {
+            padding-top: 1.5rem;
+            border-top: 1px solid #334155;
+            font-size: 0.92rem;
+            color: #cbd5e1;
+        }
+        .contact a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+        .contact a:hover {
+            text-decoration: underline;
+        }
+        .hosted {
+            position: fixed;
+            right: 16px;
+            bottom: 16px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            background: rgba(30, 41, 59, 0.9);
+            border: 1px solid #334155;
+            color: #94a3b8;
+            font-size: 0.78rem;
+            text-decoration: none;
+            transition: color .2s, border-color .2s;
+        }
+        .hosted strong {
+            color: #e2e8f0;
+            font-weight: 600;
+        }
+        .hosted::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            background: linear-gradient(135deg, #8cbf1f, #0a8f35 50%, #0590d6);
+        }
+        .hosted:hover {
+            color: #e2e8f0;
+            border-color: #64748b;
+        }
+        @media (max-width: 480px) {
+            .card { padding: 2.25rem 1.5rem; }
+            h1 { font-size: 1.6rem; }
+            .hosted { right: 50%; transform: translateX(50%); white-space: nowrap; font-size: 0.72rem; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .icon svg, .dot { animation: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </div>
+        <div class="badge"><span class="dot" aria-hidden="true"></span>Under Maintenance</div>
+        <h1>AMPlus International</h1>
+        <p>Our website is currently undergoing scheduled maintenance. We'll be back online shortly. Thank you for your patience.</p>
+        <div class="contact">
+            Need to reach us? Email: <a href="mailto:info@amplusinternational.com">info@amplusinternational.com</a>
+        </div>
+    </div>
+
+    <a class="hosted" href="https://www.globeconcs.com" target="_blank" rel="noopener">
+        Hosted by <strong>Globecon Convergence Solutions</strong>
+    </a>
+</body>
+</html>
