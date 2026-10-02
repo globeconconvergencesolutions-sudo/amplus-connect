@@ -16,6 +16,7 @@ import { Route as CartRouteImport } from './routes/cart'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as CheckoutIndexRouteImport } from './routes/checkout/index'
 import { Route as CheckoutResultRouteImport } from './routes/checkout/result'
 import { Route as InsightsIndexRouteImport } from './routes/insights/index'
@@ -74,6 +75,11 @@ const AccountIndexRoute = AccountIndexRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
   path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutIndexRoute = CheckoutIndexRouteImport.update({
@@ -204,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/api/health': typeof ApiHealthRoute
   '/checkout/result': typeof CheckoutResultRoute
   '/insights/$slug': typeof InsightsSlugRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/api/health': typeof ApiHealthRoute
   '/checkout/result': typeof CheckoutResultRoute
   '/insights/$slug': typeof InsightsSlugRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -271,6 +279,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
+  '/api/health': typeof ApiHealthRoute
   '/checkout/result': typeof CheckoutResultRoute
   '/insights/$slug': typeof InsightsSlugRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/contact'
+    | '/api/health'
     | '/checkout/result'
     | '/insights/$slug'
     | '/products/$slug'
@@ -339,6 +349,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/contact'
+    | '/api/health'
     | '/checkout/result'
     | '/insights/$slug'
     | '/products/$slug'
@@ -372,6 +383,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/cart'
     | '/contact'
+    | '/api/health'
     | '/checkout/result'
     | '/insights/$slug'
     | '/products/$slug'
@@ -406,6 +418,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   CheckoutResultRoute: typeof CheckoutResultRoute
   InsightsSlugRoute: typeof InsightsSlugRoute
   ProductsSlugRoute: typeof ProductsSlugRoute
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout/': {
@@ -662,6 +682,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
+  ApiHealthRoute: ApiHealthRoute,
   CheckoutResultRoute: CheckoutResultRoute,
   InsightsSlugRoute: InsightsSlugRoute,
   ProductsSlugRoute: ProductsSlugRoute,

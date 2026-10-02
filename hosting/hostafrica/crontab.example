@@ -1,0 +1,4 @@
+# DirectAdmin → Advanced Features → Cron Jobs
+# Once per hour. Replace SECRET with the same CRON_SECRET as the Node .env.
+
+0 * * * * curl -fsS -H "Authorization: Bearer SECRET" https://amplusconstructionsolutions.com/api/cron/order-reminders

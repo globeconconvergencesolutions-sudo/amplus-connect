@@ -45,6 +45,10 @@ function isH3SwallowedErrorBody(body: string): boolean {
 }
 
 export default {
+  // Apache / DirectAdmin Node.js App sits in front — trust X-Forwarded-* so
+  // CSRF, cookies, and absolute URLs use https://amplusconstructionsolutions.com
+  // instead of http://127.0.0.1:PORT.
+  trustProxy: true,
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
       const handler = await getServerEntry();

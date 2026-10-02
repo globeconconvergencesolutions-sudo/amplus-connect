@@ -11,7 +11,7 @@ loyalty rewards programme, and a staff admin portal.
 - Tailwind CSS v4 + shadcn/Radix UI components
 - [Supabase](https://supabase.com) (Postgres, Auth, RLS) as the backend
 - [Pesapal](https://developer.pesapal.com) API 3.0 for M-Pesa/card checkout
-- Deploys as a Cloudflare Worker (via [Nitro](https://nitro.build)'s `cloudflare-module` preset)
+- Production host: Host Africa DirectAdmin **Node.js App** (Nitro `node-server`). See [HOST-AFRICA.md](HOST-AFRICA.md).
 
 ## Development
 
@@ -45,8 +45,15 @@ script to run against a fresh project.
 ## Scripts
 
 - `npm run dev` — start the dev server
-- `npm run build` — production build (targets Cloudflare)
+- `npm run build` — production Node build for Host Africa (`.output/`)
+- `npm start` — run that build (DirectAdmin startup: `hosting/hostafrica/server.mjs`)
+- `npm run pack:hostafrica` — copy `.output` + startup files into `dist-hostafrica/` for FTP
+- `npm run check:hostafrica-env` — verify required production env keys
 - `npm run build:dev` — development-mode build, for debugging a build issue
 - `npm run preview` — preview a production build locally
 - `npm run lint` — ESLint
 - `npm run format` — Prettier
+
+## Production (Host Africa)
+
+Domain `amplusconstructionsolutions.com` on Web_Basic: create a Node.js App, build on your PC, upload `dist-hostafrica/`, set `.env`, restart Node. Full checklist: [HOST-AFRICA.md](HOST-AFRICA.md).
