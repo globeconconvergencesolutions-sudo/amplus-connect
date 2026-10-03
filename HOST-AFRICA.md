@@ -23,7 +23,7 @@ Do **not** use Host Africa MySQL. The database is **Supabase**.
 ## One-time: Node.js App
 
 1. Extra Features → **Setup Node.js App** → Create.
-2. **Node.js version:** 20.x (or 22.x). Not 16.
+2. **Node.js version:** 22.x (or newer). Not 20 — Supabase needs the built-in WebSocket that only Node 22+ has.
 3. **Application mode:** Production.
 4. **Application root:** a folder **outside** `public_html`, e.g. `/home/USER/amplus-connect`.
 5. **Application URL:** the site root — `/` or `https://amplusconstructionsolutions.com/` (same idea as Kalimoni’s API URL, but for the whole domain).
@@ -130,6 +130,7 @@ Opens the Nitro server (default port 3000 unless `PORT` is set). Use `HOST=127.0
 | Site works but login/checkout CSRF fails | App must see `https` via `X-Forwarded-*`. `trustProxy` is on; Apache must `ProxyPreserveHost On` |
 | Health OK but pages look old | `VITE_*` need a new `npm run build` + re-upload `.output` |
 | Tickets 404 / PGRST205 | Support tickets SQL not applied on live Supabase |
+| Admin shows "Node.js detected but native WebSocket not found", no orders load | Node.js App is on 20.x. Switch it to 22.x and restart |
 | Reminders never send | Cron + `CRON_SECRET` + Gmail app password |
 | Email works, site on wrong host | Keep MX/email on Host Africa; only the web vhost goes to Node |
 
