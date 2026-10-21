@@ -17,6 +17,8 @@ import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AccountIndexRouteImport } from './routes/account/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as AuthIndexRouteImport } from './routes/auth/index'
+import { Route as AuthInviteRouteImport } from './routes/auth/invite'
 import { Route as CheckoutIndexRouteImport } from './routes/checkout/index'
 import { Route as CheckoutResultRouteImport } from './routes/checkout/result'
 import { Route as InsightsIndexRouteImport } from './routes/insights/index'
@@ -29,11 +31,15 @@ import { Route as ServicesIndexRouteImport } from './routes/services/index'
 import { Route as ServicesSlugRouteImport } from './routes/services/$slug'
 import { Route as AdminCategoriesIndexRouteImport } from './routes/admin/categories/index'
 import { Route as AdminCustomersIndexRouteImport } from './routes/admin/customers/index'
+import { Route as AdminDeliveryIndexRouteImport } from './routes/admin/delivery/index'
+import { Route as AdminInvoicesIndexRouteImport } from './routes/admin/invoices/index'
+import { Route as AdminLeadsIndexRouteImport } from './routes/admin/leads/index'
 import { Route as AdminMessagesIndexRouteImport } from './routes/admin/messages/index'
 import { Route as AdminOrdersIndexRouteImport } from './routes/admin/orders/index'
 import { Route as AdminPostsIndexRouteImport } from './routes/admin/posts/index'
 import { Route as AdminProductsIndexRouteImport } from './routes/admin/products/index'
 import { Route as AdminProjectsIndexRouteImport } from './routes/admin/projects/index'
+import { Route as AdminReportsIndexRouteImport } from './routes/admin/reports/index'
 import { Route as AdminRewardsIndexRouteImport } from './routes/admin/rewards/index'
 import { Route as AdminRolesIndexRouteImport } from './routes/admin/roles/index'
 import { Route as AdminServicesIndexRouteImport } from './routes/admin/services/index'
@@ -81,6 +87,16 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthIndexRoute = AuthIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthInviteRoute = AuthInviteRouteImport.update({
+  id: '/invite',
+  path: '/invite',
+  getParentRoute: () => AuthRoute,
 } as any)
 const CheckoutIndexRoute = CheckoutIndexRouteImport.update({
   id: '/checkout/',
@@ -142,6 +158,21 @@ const AdminCustomersIndexRoute = AdminCustomersIndexRouteImport.update({
   path: '/admin/customers/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminDeliveryIndexRoute = AdminDeliveryIndexRouteImport.update({
+  id: '/admin/delivery/',
+  path: '/admin/delivery/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInvoicesIndexRoute = AdminInvoicesIndexRouteImport.update({
+  id: '/admin/invoices/',
+  path: '/admin/invoices/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLeadsIndexRoute = AdminLeadsIndexRouteImport.update({
+  id: '/admin/leads/',
+  path: '/admin/leads/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMessagesIndexRoute = AdminMessagesIndexRouteImport.update({
   id: '/admin/messages/',
   path: '/admin/messages/',
@@ -165,6 +196,11 @@ const AdminProductsIndexRoute = AdminProductsIndexRouteImport.update({
 const AdminProjectsIndexRoute = AdminProjectsIndexRouteImport.update({
   id: '/admin/projects/',
   path: '/admin/projects/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReportsIndexRoute = AdminReportsIndexRouteImport.update({
+  id: '/admin/reports/',
+  path: '/admin/reports/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminRewardsIndexRoute = AdminRewardsIndexRouteImport.update({
@@ -207,10 +243,11 @@ const ApiPublicPesapalIpnRoute = ApiPublicPesapalIpnRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/api/health': typeof ApiHealthRoute
+  '/auth/invite': typeof AuthInviteRoute
   '/checkout/result': typeof CheckoutResultRoute
   '/insights/$slug': typeof InsightsSlugRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -218,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/services/$slug': typeof ServicesSlugRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
+  '/auth/': typeof AuthIndexRoute
   '/checkout/': typeof CheckoutIndexRoute
   '/insights/': typeof InsightsIndexRoute
   '/products/': typeof ProductsIndexRoute
@@ -226,11 +264,15 @@ export interface FileRoutesByFullPath {
   '/api/cron/order-reminders': typeof ApiCronOrderRemindersRoute
   '/admin/categories/': typeof AdminCategoriesIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
+  '/admin/delivery/': typeof AdminDeliveryIndexRoute
+  '/admin/invoices/': typeof AdminInvoicesIndexRoute
+  '/admin/leads/': typeof AdminLeadsIndexRoute
   '/admin/messages/': typeof AdminMessagesIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/posts/': typeof AdminPostsIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/projects/': typeof AdminProjectsIndexRoute
+  '/admin/reports/': typeof AdminReportsIndexRoute
   '/admin/rewards/': typeof AdminRewardsIndexRoute
   '/admin/roles/': typeof AdminRolesIndexRoute
   '/admin/services/': typeof AdminServicesIndexRoute
@@ -241,10 +283,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/auth': typeof AuthRoute
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/api/health': typeof ApiHealthRoute
+  '/auth/invite': typeof AuthInviteRoute
   '/checkout/result': typeof CheckoutResultRoute
   '/insights/$slug': typeof InsightsSlugRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -252,6 +294,7 @@ export interface FileRoutesByTo {
   '/services/$slug': typeof ServicesSlugRoute
   '/account': typeof AccountIndexRoute
   '/admin': typeof AdminIndexRoute
+  '/auth': typeof AuthIndexRoute
   '/checkout': typeof CheckoutIndexRoute
   '/insights': typeof InsightsIndexRoute
   '/products': typeof ProductsIndexRoute
@@ -260,11 +303,15 @@ export interface FileRoutesByTo {
   '/api/cron/order-reminders': typeof ApiCronOrderRemindersRoute
   '/admin/categories': typeof AdminCategoriesIndexRoute
   '/admin/customers': typeof AdminCustomersIndexRoute
+  '/admin/delivery': typeof AdminDeliveryIndexRoute
+  '/admin/invoices': typeof AdminInvoicesIndexRoute
+  '/admin/leads': typeof AdminLeadsIndexRoute
   '/admin/messages': typeof AdminMessagesIndexRoute
   '/admin/orders': typeof AdminOrdersIndexRoute
   '/admin/posts': typeof AdminPostsIndexRoute
   '/admin/products': typeof AdminProductsIndexRoute
   '/admin/projects': typeof AdminProjectsIndexRoute
+  '/admin/reports': typeof AdminReportsIndexRoute
   '/admin/rewards': typeof AdminRewardsIndexRoute
   '/admin/roles': typeof AdminRolesIndexRoute
   '/admin/services': typeof AdminServicesIndexRoute
@@ -276,10 +323,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/cart': typeof CartRoute
   '/contact': typeof ContactRoute
   '/api/health': typeof ApiHealthRoute
+  '/auth/invite': typeof AuthInviteRoute
   '/checkout/result': typeof CheckoutResultRoute
   '/insights/$slug': typeof InsightsSlugRoute
   '/products/$slug': typeof ProductsSlugRoute
@@ -287,6 +335,7 @@ export interface FileRoutesById {
   '/services/$slug': typeof ServicesSlugRoute
   '/account/': typeof AccountIndexRoute
   '/admin/': typeof AdminIndexRoute
+  '/auth/': typeof AuthIndexRoute
   '/checkout/': typeof CheckoutIndexRoute
   '/insights/': typeof InsightsIndexRoute
   '/products/': typeof ProductsIndexRoute
@@ -295,11 +344,15 @@ export interface FileRoutesById {
   '/api/cron/order-reminders': typeof ApiCronOrderRemindersRoute
   '/admin/categories/': typeof AdminCategoriesIndexRoute
   '/admin/customers/': typeof AdminCustomersIndexRoute
+  '/admin/delivery/': typeof AdminDeliveryIndexRoute
+  '/admin/invoices/': typeof AdminInvoicesIndexRoute
+  '/admin/leads/': typeof AdminLeadsIndexRoute
   '/admin/messages/': typeof AdminMessagesIndexRoute
   '/admin/orders/': typeof AdminOrdersIndexRoute
   '/admin/posts/': typeof AdminPostsIndexRoute
   '/admin/products/': typeof AdminProductsIndexRoute
   '/admin/projects/': typeof AdminProjectsIndexRoute
+  '/admin/reports/': typeof AdminReportsIndexRoute
   '/admin/rewards/': typeof AdminRewardsIndexRoute
   '/admin/roles/': typeof AdminRolesIndexRoute
   '/admin/services/': typeof AdminServicesIndexRoute
@@ -316,6 +369,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/contact'
     | '/api/health'
+    | '/auth/invite'
     | '/checkout/result'
     | '/insights/$slug'
     | '/products/$slug'
@@ -323,6 +377,7 @@ export interface FileRouteTypes {
     | '/services/$slug'
     | '/account/'
     | '/admin/'
+    | '/auth/'
     | '/checkout/'
     | '/insights/'
     | '/products/'
@@ -331,11 +386,15 @@ export interface FileRouteTypes {
     | '/api/cron/order-reminders'
     | '/admin/categories/'
     | '/admin/customers/'
+    | '/admin/delivery/'
+    | '/admin/invoices/'
+    | '/admin/leads/'
     | '/admin/messages/'
     | '/admin/orders/'
     | '/admin/posts/'
     | '/admin/products/'
     | '/admin/projects/'
+    | '/admin/reports/'
     | '/admin/rewards/'
     | '/admin/roles/'
     | '/admin/services/'
@@ -346,10 +405,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/auth'
     | '/cart'
     | '/contact'
     | '/api/health'
+    | '/auth/invite'
     | '/checkout/result'
     | '/insights/$slug'
     | '/products/$slug'
@@ -357,6 +416,7 @@ export interface FileRouteTypes {
     | '/services/$slug'
     | '/account'
     | '/admin'
+    | '/auth'
     | '/checkout'
     | '/insights'
     | '/products'
@@ -365,11 +425,15 @@ export interface FileRouteTypes {
     | '/api/cron/order-reminders'
     | '/admin/categories'
     | '/admin/customers'
+    | '/admin/delivery'
+    | '/admin/invoices'
+    | '/admin/leads'
     | '/admin/messages'
     | '/admin/orders'
     | '/admin/posts'
     | '/admin/products'
     | '/admin/projects'
+    | '/admin/reports'
     | '/admin/rewards'
     | '/admin/roles'
     | '/admin/services'
@@ -384,6 +448,7 @@ export interface FileRouteTypes {
     | '/cart'
     | '/contact'
     | '/api/health'
+    | '/auth/invite'
     | '/checkout/result'
     | '/insights/$slug'
     | '/products/$slug'
@@ -391,6 +456,7 @@ export interface FileRouteTypes {
     | '/services/$slug'
     | '/account/'
     | '/admin/'
+    | '/auth/'
     | '/checkout/'
     | '/insights/'
     | '/products/'
@@ -399,11 +465,15 @@ export interface FileRouteTypes {
     | '/api/cron/order-reminders'
     | '/admin/categories/'
     | '/admin/customers/'
+    | '/admin/delivery/'
+    | '/admin/invoices/'
+    | '/admin/leads/'
     | '/admin/messages/'
     | '/admin/orders/'
     | '/admin/posts/'
     | '/admin/products/'
     | '/admin/projects/'
+    | '/admin/reports/'
     | '/admin/rewards/'
     | '/admin/roles/'
     | '/admin/services/'
@@ -415,7 +485,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
   CartRoute: typeof CartRoute
   ContactRoute: typeof ContactRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -434,11 +504,15 @@ export interface RootRouteChildren {
   ApiCronOrderRemindersRoute: typeof ApiCronOrderRemindersRoute
   AdminCategoriesIndexRoute: typeof AdminCategoriesIndexRoute
   AdminCustomersIndexRoute: typeof AdminCustomersIndexRoute
+  AdminDeliveryIndexRoute: typeof AdminDeliveryIndexRoute
+  AdminInvoicesIndexRoute: typeof AdminInvoicesIndexRoute
+  AdminLeadsIndexRoute: typeof AdminLeadsIndexRoute
   AdminMessagesIndexRoute: typeof AdminMessagesIndexRoute
   AdminOrdersIndexRoute: typeof AdminOrdersIndexRoute
   AdminPostsIndexRoute: typeof AdminPostsIndexRoute
   AdminProductsIndexRoute: typeof AdminProductsIndexRoute
   AdminProjectsIndexRoute: typeof AdminProjectsIndexRoute
+  AdminReportsIndexRoute: typeof AdminReportsIndexRoute
   AdminRewardsIndexRoute: typeof AdminRewardsIndexRoute
   AdminRolesIndexRoute: typeof AdminRolesIndexRoute
   AdminServicesIndexRoute: typeof AdminServicesIndexRoute
@@ -504,6 +578,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/auth/': {
+      id: '/auth/'
+      path: '/'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/auth/invite': {
+      id: '/auth/invite'
+      path: '/invite'
+      fullPath: '/auth/invite'
+      preLoaderRoute: typeof AuthInviteRouteImport
+      parentRoute: typeof AuthRoute
     }
     '/checkout/': {
       id: '/checkout/'
@@ -589,6 +677,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCustomersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/delivery/': {
+      id: '/admin/delivery/'
+      path: '/admin/delivery'
+      fullPath: '/admin/delivery/'
+      preLoaderRoute: typeof AdminDeliveryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/invoices/': {
+      id: '/admin/invoices/'
+      path: '/admin/invoices'
+      fullPath: '/admin/invoices/'
+      preLoaderRoute: typeof AdminInvoicesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/leads/': {
+      id: '/admin/leads/'
+      path: '/admin/leads'
+      fullPath: '/admin/leads/'
+      preLoaderRoute: typeof AdminLeadsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/messages/': {
       id: '/admin/messages/'
       path: '/admin/messages'
@@ -622,6 +731,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/projects'
       fullPath: '/admin/projects/'
       preLoaderRoute: typeof AdminProjectsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reports/': {
+      id: '/admin/reports/'
+      path: '/admin/reports'
+      fullPath: '/admin/reports/'
+      preLoaderRoute: typeof AdminReportsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/rewards/': {
@@ -676,10 +792,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthRouteChildren {
+  AuthInviteRoute: typeof AuthInviteRoute
+  AuthIndexRoute: typeof AuthIndexRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthInviteRoute: AuthInviteRoute,
+  AuthIndexRoute: AuthIndexRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
   CartRoute: CartRoute,
   ContactRoute: ContactRoute,
   ApiHealthRoute: ApiHealthRoute,
@@ -698,11 +826,15 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCronOrderRemindersRoute: ApiCronOrderRemindersRoute,
   AdminCategoriesIndexRoute: AdminCategoriesIndexRoute,
   AdminCustomersIndexRoute: AdminCustomersIndexRoute,
+  AdminDeliveryIndexRoute: AdminDeliveryIndexRoute,
+  AdminInvoicesIndexRoute: AdminInvoicesIndexRoute,
+  AdminLeadsIndexRoute: AdminLeadsIndexRoute,
   AdminMessagesIndexRoute: AdminMessagesIndexRoute,
   AdminOrdersIndexRoute: AdminOrdersIndexRoute,
   AdminPostsIndexRoute: AdminPostsIndexRoute,
   AdminProductsIndexRoute: AdminProductsIndexRoute,
   AdminProjectsIndexRoute: AdminProjectsIndexRoute,
+  AdminReportsIndexRoute: AdminReportsIndexRoute,
   AdminRewardsIndexRoute: AdminRewardsIndexRoute,
   AdminRolesIndexRoute: AdminRolesIndexRoute,
   AdminServicesIndexRoute: AdminServicesIndexRoute,

@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Amplus storefront mock — premium review</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Barlow:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f3f1eb;
+        --bg-deep: #ebe7de;
+        --ink: #171d26;
+        --muted: #6b7280;
+        --line: #ddd6c8;
+        --card: #fffcf7;
+        --accent: #b86a0d;
+        --accent-hot: #d4891a;
+        --ok: #1a6b45;
+        --shadow: 0 1px 0 rgba(23, 29, 38, 0.04), 0 18px 40px rgba(23, 29, 38, 0.08);
+        --shadow-lift: 0 2px 0 rgba(23, 29, 38, 0.04), 0 28px 56px rgba(23, 29, 38, 0.14);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: Barlow, system-ui, sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(1200px 500px at 10% -10%, rgba(184, 106, 13, 0.08), transparent 55%),
+          radial-gradient(900px 420px at 90% 0%, rgba(23, 29, 38, 0.05), transparent 50%),
+          linear-gradient(180deg, #f7f5ef 0%, var(--bg) 40%, var(--bg-deep) 100%);
+        min-height: 100vh;
+      }
+      h1,
+      h2,
+      h3,
+      .logo,
+      .display {
+        font-family: Archivo, system-ui, sans-serif;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+      .banner {
+        background: linear-gradient(90deg, #12171f, #243041 50%, #12171f);
+        color: #c5ced9;
+        text-align: center;
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        padding: 9px 12px;
+      }
+      .banner strong {
+        color: #f0b15a;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 30;
+        background: rgba(247, 245, 239, 0.86);
+        backdrop-filter: blur(14px);
+        border-bottom: 1px solid rgba(221, 214, 200, 0.9);
+      }
+      .bar {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 14px 18px;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 14px;
+        align-items: center;
+      }
+      .logo {
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        font-size: 15px;
+        white-space: nowrap;
+      }
+      .logo span {
+        color: var(--accent);
+      }
+      .search {
+        display: flex;
+        border: 1px solid var(--line);
+        background: rgba(255, 252, 247, 0.95);
+        border-radius: 999px;
+        overflow: hidden;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      }
+      .search input {
+        border: 0;
+        outline: 0;
+        width: 100%;
+        padding: 12px 16px;
+        font: inherit;
+        background: transparent;
+      }
+      .search button {
+        border: 0;
+        background: linear-gradient(135deg, var(--accent-hot), var(--accent));
+        color: white;
+        padding: 0 18px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .pill {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .pill.accent {
+        background: linear-gradient(135deg, var(--accent-hot), var(--accent));
+        border-color: transparent;
+        color: white;
+        box-shadow: 0 8px 18px rgba(184, 106, 13, 0.28);
+      }
+      main {
+        max-width: 1160px;
+        margin: 0 auto;
+        padding: 22px 18px 56px;
+      }
+      .intro {
+        margin-bottom: 18px;
+      }
+      .intro .eyebrow {
+        margin: 0 0 6px;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+      }
+      .intro h1 {
+        margin: 0;
+        font-size: clamp(28px, 4vw, 42px);
+        letter-spacing: -0.03em;
+        line-height: 1.05;
+      }
+      .intro p {
+        margin: 8px 0 0;
+        max-width: 42rem;
+        color: var(--muted);
+        font-size: 15px;
+      }
+      .chips {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        margin-bottom: 18px;
+      }
+      .chip {
+        border: 1px solid var(--line);
+        background: rgba(255, 252, 247, 0.9);
+        border-radius: 999px;
+        padding: 9px 16px;
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      }
+      .chip:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow);
+      }
+      .chip.on {
+        background: var(--ink);
+        color: white;
+        border-color: var(--ink);
+      }
+      .section-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 12px;
+        margin: 10px 0 14px;
+      }
+      .section-title h2 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: -0.02em;
+      }
+      .section-title p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .marquee-wrap {
+        overflow: hidden;
+        border: 1px solid rgba(221, 214, 200, 0.95);
+        background:
+          linear-gradient(180deg, rgba(255, 252, 247, 0.95), rgba(243, 241, 235, 0.7)),
+          repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 8px,
+            rgba(23, 29, 38, 0.015) 8px,
+            rgba(23, 29, 38, 0.015) 16px
+          );
+        border-radius: 18px;
+        margin-bottom: 32px;
+        box-shadow: var(--shadow);
+      }
+      .marquee-label {
+        padding: 14px 16px 0;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .marquee {
+        display: flex;
+        width: max-content;
+        gap: 14px;
+        padding: 14px 16px 18px;
+        animation: scroll 32s linear infinite;
+      }
+      .marquee-wrap:hover .marquee {
+        animation-play-state: paused;
+      }
+      @keyframes scroll {
+        from {
+          transform: translateX(0);
+        }
+        to {
+          transform: translateX(-50%);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .marquee {
+          animation: none;
+          overflow-x: auto;
+          width: 100%;
+        }
+      }
+      .card {
+        width: 210px;
+        flex: 0 0 auto;
+        border: 1px solid rgba(221, 214, 200, 0.95);
+        border-radius: 16px;
+        overflow: hidden;
+        background: var(--card);
+        box-shadow: var(--shadow);
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: var(--shadow-lift);
+      }
+      .thumb {
+        height: 140px;
+        display: grid;
+        place-items: end start;
+        padding: 12px;
+        color: white;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.35);
+        position: relative;
+      }
+      .thumb::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, transparent 35%, rgba(17, 20, 26, 0.55));
+      }
+      .thumb span {
+        position: relative;
+        z-index: 1;
+      }
+      .thumb.ballast {
+        background:
+          radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.18), transparent 40%),
+          linear-gradient(145deg, #8a8378, #5c564d 45%, #3e3a34);
+      }
+      .thumb.cement {
+        background:
+          radial-gradient(circle at 70% 15%, rgba(255, 255, 255, 0.22), transparent 35%),
+          linear-gradient(145deg, #9aa4b2, #6d7888 50%, #445061);
+      }
+      .body {
+        padding: 12px 12px 14px;
+      }
+      .body h3 {
+        margin: 0;
+        font-size: 15px;
+        line-height: 1.25;
+        min-height: 38px;
+        letter-spacing: -0.01em;
+      }
+      .meta {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .price {
+        margin-top: 10px;
+        font-family: Archivo, system-ui, sans-serif;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.02em;
+      }
+      .add {
+        margin-top: 10px;
+        width: 100%;
+        border: 0;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent-hot), var(--accent));
+        color: white;
+        font-weight: 700;
+        padding: 10px 12px;
+        cursor: pointer;
+        box-shadow: 0 10px 20px rgba(184, 106, 13, 0.22);
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+      .add:hover {
+        filter: brightness(1.05);
+        transform: translateY(-1px);
+      }
+      .floor {
+        margin-bottom: 34px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+      .grid .card {
+        width: auto;
+      }
+      .grid .thumb {
+        height: 190px;
+      }
+      .grid .body {
+        padding: 14px 14px 16px;
+      }
+      .grid .body h3 {
+        font-size: 17px;
+        min-height: 44px;
+      }
+      .trust {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin: 0 0 26px;
+      }
+      .trust div {
+        background: rgba(255, 252, 247, 0.88);
+        border: 1px solid rgba(221, 214, 200, 0.95);
+        border-radius: 14px;
+        padding: 14px 14px 15px;
+        font-size: 13px;
+        box-shadow: var(--shadow);
+      }
+      .trust strong {
+        display: block;
+        margin-bottom: 4px;
+        font-family: Archivo, system-ui, sans-serif;
+        font-size: 14px;
+      }
+      footer {
+        border-top: 1px solid var(--line);
+        padding: 22px 16px 34px;
+        text-align: center;
+        color: var(--muted);
+        font-size: 13px;
+        background: rgba(255, 252, 247, 0.45);
+      }
+      footer a {
+        margin: 0 10px;
+        font-weight: 700;
+        color: var(--ink);
+      }
+      .views {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 16px;
+      }
+      .views button {
+        border: 1px solid var(--line);
+        background: var(--card);
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .views button.on {
+        background: var(--ink);
+        color: white;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .pdp {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 28px;
+        margin-top: 8px;
+      }
+      .gallery {
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        overflow: hidden;
+        background: var(--card);
+        box-shadow: var(--shadow);
+      }
+      .gallery .hero {
+        height: 420px;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.2), transparent 40%),
+          linear-gradient(145deg, #8a8378, #4a453f);
+        color: white;
+        font-family: Archivo, system-ui, sans-serif;
+        font-weight: 800;
+        font-size: 22px;
+        letter-spacing: -0.02em;
+        text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+      }
+      .thumbs {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        padding: 12px;
+      }
+      .thumbs div {
+        height: 68px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: linear-gradient(145deg, #b4ada1, #7d766b);
+      }
+      .thumbs .on {
+        border-color: var(--accent);
+        outline: 2px solid rgba(184, 106, 13, 0.28);
+      }
+      .buy h1 {
+        margin: 6px 0 10px;
+        font-size: clamp(26px, 3vw, 34px);
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+      }
+      .stock {
+        color: var(--ok);
+        font-size: 14px;
+        font-weight: 700;
+      }
+      .qty {
+        display: inline-flex;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        overflow: hidden;
+        margin-right: 8px;
+        background: var(--card);
+      }
+      .qty button,
+      .qty span {
+        width: 42px;
+        height: 42px;
+        display: grid;
+        place-items: center;
+      }
+      .qty button {
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        font-size: 18px;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        margin-top: 18px;
+        flex-wrap: wrap;
+      }
+      .specs {
+        margin-top: 20px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(255, 252, 247, 0.9);
+        box-shadow: var(--shadow);
+      }
+      .specs div {
+        display: flex;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-top: 1px solid var(--line);
+        font-size: 14px;
+      }
+      .specs div:first-child {
+        border-top: 0;
+      }
+      .others {
+        margin-top: 34px;
+      }
+      .others .strip {
+        display: flex;
+        gap: 14px;
+        overflow-x: auto;
+        padding: 4px 2px 10px;
+      }
+      @media (max-width: 800px) {
+        .bar {
+          grid-template-columns: 1fr auto;
+        }
+        .search {
+          grid-column: 1 / -1;
+          order: 3;
+        }
+        .grid {
+          grid-template-columns: 1fr;
+        }
+        .trust {
+          grid-template-columns: 1fr;
+        }
+        .pdp {
+          grid-template-columns: 1fr;
+        }
+        .gallery .hero {
+          height: 280px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      PREMIUM REVIEW MOCK · product-first like Jumia ·
+      <strong>high-end materials feel</strong> · real app still untouched
+    </div>
+
+    <div class="views">
+      <button class="on" data-view="home" type="button">1. Home = products</button>
+      <button data-view="pdp" type="button">2. Product page</button>
+    </div>
+
+    <header>
+      <div class="bar">
+        <div class="logo">AMPLUS <span>SHOP</span></div>
+        <div class="search">
+          <input placeholder="Search ballast, cement, size…" />
+          <button type="button">Search</button>
+        </div>
+        <div class="actions">
+          <div class="pill">Cart · 2</div>
+          <div class="pill accent">Sign in</div>
+        </div>
+      </div>
+    </header>
+
+    <main id="home">
+      <div class="intro">
+        <p class="eyebrow">Yard ready · Mombasa Road</p>
+        <h1 class="display">Materials, priced and ready to move.</h1>
+        <p>
+          Two families. Every size and grade is its own SKU. Find it, add it, pay by Equity —
+          no brochure tour first.
+        </p>
+      </div>
+
+      <div class="chips">
+        <button class="chip on" type="button">All</button>
+        <button class="chip" type="button">Ballast</button>
+        <button class="chip" type="button">Cement</button>
+      </div>
+
+      <div class="trust">
+        <div><strong>Pay Equity / M-Pesa</strong>Order number on every transfer</div>
+        <div><strong>Delivery from the yard</strong>Drop point or site pin quote</div>
+        <div><strong>Call / WhatsApp</strong>Stock confirmed by the team</div>
+      </div>
+
+      <div class="section-title">
+        <div>
+          <h2>All varieties</h2>
+          <p>Living strip · auto-scroll · pauses when you hover</p>
+        </div>
+      </div>
+
+      <div class="marquee-wrap" aria-label="Autoscrolling products">
+        <div class="marquee-label">Now in yard</div>
+        <div class="marquee" id="marquee"></div>
+      </div>
+
+      <section class="floor">
+        <div class="section-title">
+          <div>
+            <h2>Ballast</h2>
+            <p>One family · sizes as separate products</p>
+          </div>
+        </div>
+        <div class="grid" id="ballast-grid"></div>
+      </section>
+
+      <section class="floor">
+        <div class="section-title">
+          <div>
+            <h2>Cement</h2>
+            <p>Grades as separate sellable SKUs</p>
+          </div>
+        </div>
+        <div class="grid" id="cement-grid"></div>
+      </section>
+    </main>
+
+    <main id="pdp" class="hidden">
+      <p style="color: var(--muted); font-size: 13px; margin: 0 0 14px; font-weight: 600">
+        ← Back to all materials
+      </p>
+      <div class="pdp">
+        <div class="gallery">
+          <div class="hero">Machine Cut Ballast 3/4"</div>
+          <div class="thumbs">
+            <div class="on"></div>
+            <div></div>
+            <div></div>
+            <div></div>
+          </div>
+        </div>
+        <div class="buy">
+          <div
+            class="meta"
+            style="letter-spacing: 0.14em; text-transform: uppercase; font-weight: 800; color: var(--accent)"
+          >
+            Amplus Quarry
+          </div>
+          <h1>Machine Cut Ballast 3/4"</h1>
+          <p style="color: var(--muted); margin: 0; font-size: 15px">
+            Clean graded ballast for concrete mixes — yard stocked, sold per tonne.
+          </p>
+          <div class="price" style="font-size: 32px; margin-top: 16px">
+            KSh 2,400 <span class="meta">per tonne</span>
+          </div>
+          <p class="stock">300 tonne(s) in stock</p>
+          <div class="row">
+            <div class="qty">
+              <button type="button">−</button>
+              <span>1</span>
+              <button type="button">+</button>
+            </div>
+            <button class="add" style="width: auto; min-width: 190px; height: 42px" type="button">
+              Add to cart
+            </button>
+            <button class="pill" type="button">WhatsApp</button>
+          </div>
+          <div class="specs">
+            <div><span class="meta">Size</span><strong>3/4 inch</strong></div>
+            <div><span class="meta">Sold as</span><strong>Per tonne</strong></div>
+            <div><span class="meta">Family</span><strong>Ballast</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="others">
+        <div class="section-title">
+          <div>
+            <h2>Other sizes in Ballast</h2>
+            <p>Same family · different SKUs</p>
+          </div>
+        </div>
+        <div class="strip" id="other-sizes"></div>
+      </div>
+    </main>
+
+    <footer>
+      <a href="#">About</a>
+      <a href="#">Contact</a>
+      · +254 723 507 050 · Amplus yard, Mombasa Road
+      <div style="margin-top: 8px">Premium mock for review · production code not modified</div>
+    </footer>
+
+    <script>
+      const ballast = [
+        { name: 'Machine Cut Ballast 3/4"', price: "KSh 2,400", unit: "per tonne", kind: "ballast", tag: "3/4 inch" },
+        { name: 'Machine Cut Ballast 1/2"', price: "KSh 2,250", unit: "per tonne", kind: "ballast", tag: "1/2 inch" },
+        { name: 'Machine Cut Ballast 1"', price: "KSh 2,550", unit: "per tonne", kind: "ballast", tag: "1 inch" },
+      ];
+      const cement = [
+        { name: "Portland Cement 32.5N · 50kg", price: "KSh 780", unit: "per bag", kind: "cement", tag: "32.5N" },
+        { name: "Portland Cement 42.5N · 50kg", price: "KSh 890", unit: "per bag", kind: "cement", tag: "42.5N" },
+      ];
+      const all = [...ballast, ...cement];
+
+      function card(item) {
+        return `<article class="card">
+          <div class="thumb ${item.kind}"><span>${item.tag}</span></div>
+          <div class="body">
+            <h3>${item.name}</h3>
+            <div class="meta">${item.unit}</div>
+            <div class="price">${item.price}</div>
+            <button class="add" type="button">Add</button>
+          </div>
+        </article>`;
+      }
+
+      const marquee = document.getElementById("marquee");
+      marquee.innerHTML = [...all, ...all, ...all].map(card).join("");
+      document.getElementById("ballast-grid").innerHTML = ballast.map(card).join("");
+      document.getElementById("cement-grid").innerHTML = cement.map(card).join("");
+      document.getElementById("other-sizes").innerHTML = ballast
+        .filter((item) => !item.name.includes('3/4"'))
+        .map(card)
+        .join("");
+
+      const home = document.getElementById("home");
+      const pdp = document.getElementById("pdp");
+      document.querySelectorAll(".views button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll(".views button").forEach((b) => b.classList.remove("on"));
+          btn.classList.add("on");
+          const view = btn.dataset.view;
+          home.classList.toggle("hidden", view !== "home");
+          pdp.classList.toggle("hidden", view !== "pdp");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      });
+
+      document.querySelectorAll(".chips .chip").forEach((chip) => {
+        chip.addEventListener("click", () => {
+          document.querySelectorAll(".chips .chip").forEach((c) => c.classList.remove("on"));
+          chip.classList.add("on");
+        });
+      });
+    </script>
+  </body>
+</html>

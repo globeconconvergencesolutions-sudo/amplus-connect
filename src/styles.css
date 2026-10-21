@@ -200,3 +200,42 @@
     var(--color-ink) 12px 24px
   );
 }
+
+@utility shop-atmosphere {
+  background-image:
+    radial-gradient(
+      900px 380px at 8% -8%,
+      color-mix(in oklch, var(--color-accent) 14%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      700px 320px at 92% 0%,
+      color-mix(in oklch, var(--color-ink) 6%, transparent),
+      transparent 52%
+    );
+}
+
+.shop-marquee-track {
+  animation: shop-marquee-scroll 34s linear infinite;
+}
+
+.shop-marquee:hover .shop-marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes shop-marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shop-marquee-track {
+    animation: none;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

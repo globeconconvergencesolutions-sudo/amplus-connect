@@ -3,29 +3,45 @@ import { ArrowRight, Minus, Package, Plus, ShoppingCart, Trash2 } from "lucide-r
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { formatKes } from "@/lib/format";
+import { StaffGate } from "@/components/staff-gate";
 import { useCart } from "@/lib/cart";
+import { useAccount } from "@/hooks/use-auth";
 
 export const Route = createFileRoute("/cart")({
-  component: CartPage,
+  component: CartRoute,
 });
+
+function CartRoute() {
+  return (
+    <StaffGate>
+      <CartPage />
+    </StaffGate>
+  );
+}
 
 function CartPage() {
   const { lines, subtotal, setQuantity, remove, clear } = useCart();
+  const { user, loading } = useAccount();
 
   return (
     <PageShell>
-      <PageHeader eyebrow="Your order" title="Shopping cart" />
+      <PageHeader
+        eyebrow="Your order"
+        title="Shopping cart"
+        description="Online checkout is optional and needs an account. Most customers open a product and use Express interest — no sign-in."
+      />
 
       <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         {lines.length === 0 ? (
           <div className="panel flex flex-col items-center gap-4 p-16 text-center">
             <ShoppingCart className="size-12 text-muted-foreground" />
             <h2 className="text-xl">Your cart is empty</h2>
-            <p className="text-sm text-muted-foreground">
-              Browse the catalogue to add materials to your order.
+            <p className="max-w-md text-sm text-muted-foreground">
+              Browse materials and leave your details on the product page — no account needed. Or
+              sign in later if you prefer to checkout online.
             </p>
             <Button variant="accent" asChild>
-              <Link to="/products">
+              <Link to="/">
                 Shop materials <ArrowRight />
               </Link>
             </Button>
@@ -70,6 +86,14 @@ function CartPage() {
                       <p className="text-xs text-muted-foreground">
                         {formatKes(line.unitPrice)} per {line.unit}
                       </p>
+                      <Link
+                        to="/products/$slug"
+                        params={{ slug: line.slug }}
+                        hash="express-interest"
+                        className="mt-1 inline-block text-xs font-medium text-accent hover:underline"
+                      >
+                        Express interest on this product →
+                      </Link>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center rounded-md border border-input">
@@ -117,13 +141,35 @@ function CartPage() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Delivery fee is calculated at checkout.
               </p>
-              <Button variant="accent" size="lg" className="mt-6 w-full" asChild>
-                <Link to="/checkout">
-                  Proceed to checkout <ArrowRight />
-                </Link>
-              </Button>
+
+              {!loading && !user ? (
+                <div className="mt-5 rounded-xl border border-dashed border-border bg-secondary/40 p-4 text-sm">
+                  <p className="font-medium">No account needed for most orders</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Open any product and use <span className="font-medium">Express interest</span>.
+                    We will call you. Online checkout below requires sign-in.
+                  </p>
+                  <Button variant="accent" size="sm" className="mt-3 w-full rounded-full" asChild>
+                    <Link to="/">
+                      Browse &amp; enquire <ArrowRight />
+                    </Link>
+                  </Button>
+                  <Button variant="outline" size="sm" className="mt-2 w-full rounded-full" asChild>
+                    <Link to="/auth" search={{ redirect: "/checkout" }}>
+                      Sign in to checkout
+                    </Link>
+                  </Button>
+                </div>
+              ) : (
+                <Button variant="accent" size="lg" className="mt-6 w-full" asChild>
+                  <Link to="/checkout">
+                    Proceed to checkout <ArrowRight />
+                  </Link>
+                </Button>
+              )}
+
               <Button variant="ghost" size="sm" className="mt-2 w-full" asChild>
-                <Link to="/products">Continue shopping</Link>
+                <Link to="/">Continue shopping</Link>
               </Button>
             </div>
           </div>

@@ -57,9 +57,23 @@ function AboutPage() {
               Kenya, and supply verified construction materials — cement, steel, roofing, finishes,
               plumbing and tools — through our online store with nationwide delivery.
             </p>
-            <Button variant="accent" size="lg" className="mt-7" asChild>
-              <Link to="/projects">
-                See our projects <ArrowRight />
+            {COMPANY.facebook ? (
+              <p className="mt-4 text-sm text-muted-foreground">
+                Find us on{" "}
+                <a
+                  href={COMPANY.facebook}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
+                >
+                  Facebook
+                </a>{" "}
+                for yard updates and project news.
+              </p>
+            ) : null}
+            <Button variant="accent" size="lg" className="mt-7 rounded-full" asChild>
+              <Link to="/">
+                Shop materials <ArrowRight />
               </Link>
             </Button>
           </div>

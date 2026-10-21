@@ -12,6 +12,9 @@ export function isPaidPipeline(status: string) {
 }
 
 export function deliveryLabel(option: string | null | undefined) {
+  if (option === "pickup") return "Collect from Amplus yard, Mombasa Road";
+  if (option === "drop_point") return "Delivery to a drop point";
+  if (option === "site_pin") return "Site / pin delivery";
   const match = DELIVERY_OPTIONS.find((row) => row.id === option);
   if (match) return match.label;
   if (!option) return "Delivery";
@@ -26,10 +29,21 @@ export type FulfilmentStep = {
   current: boolean;
 };
 
-export function fulfilmentSteps(status: string, deliveryOption: string | null | undefined): FulfilmentStep[] {
+export function fulfilmentSteps(
+  status: string,
+  deliveryOption: string | null | undefined,
+): FulfilmentStep[] {
   const pickup = isPickupOption(deliveryOption);
   const rank =
-    status === "DELIVERED" ? 3 : status === "SHIPPED" ? 2 : status === "FULFILLED" ? 1 : status === "PAID" ? 0 : -1;
+    status === "DELIVERED"
+      ? 3
+      : status === "SHIPPED"
+        ? 2
+        : status === "FULFILLED"
+          ? 1
+          : status === "PAID"
+            ? 0
+            : -1;
 
   const packed: FulfilmentStep = {
     key: "paid",
@@ -45,7 +59,8 @@ export function fulfilmentSteps(status: string, deliveryOption: string | null | 
       {
         key: "ready",
         title: "Ready for collection",
-        detail: "Collect from the Amplus yard, Mombasa Road, during opening hours. Bring this order code.",
+        detail:
+          "Collect from the Amplus yard, Mombasa Road, during opening hours. Bring this order code.",
         done: rank >= 1,
         current: rank === 1,
       },

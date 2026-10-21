@@ -56,15 +56,33 @@ export function useSignOut() {
   return { signOut, signingOut };
 }
 
+let endingNonStaff = false;
+
+/** Signs out a customer session. Staff sign-in is the only account the shop keeps. */
+export async function endNonStaffSession() {
+  if (endingNonStaff) return;
+  endingNonStaff = true;
+  const { error } = await supabase.auth.signOut({ scope: "local" });
+  endingNonStaff = false;
+  if (error) {
+    toast.error("Could not sign out. Refresh and try again.");
+    return;
+  }
+  toast.error("This sign-in is for staff.");
+}
+
 export function useAccount() {
-  const { session, user, loading } = useSession();
+  const { session, user, loading: sessionLoading } = useSession();
   const profile = useQuery(profileQuery(user?.id));
   const roles = useQuery(rolesQuery(user?.id));
+  // A disabled roles query is not "loaded". Wait until this user id has succeeded or failed.
+  const rolesPending = Boolean(user) && !roles.isSuccess && !roles.isError;
 
   return {
     session,
     user,
-    loading,
+    loading: sessionLoading || rolesPending,
+    rolesError: Boolean(user) && roles.isError,
     profile: profile.data ?? null,
     roles: roles.data ?? [],
     isStaff: (roles.data ?? []).length > 0,

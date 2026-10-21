@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
+import { StaffGate } from "@/components/staff-gate";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { BankPaymentPanel } from "@/components/bank-payment-panel";
@@ -12,8 +13,16 @@ import { ORDER_STATUS_LABELS } from "@/lib/format";
 
 export const Route = createFileRoute("/checkout/result")({
   validateSearch: z.object({ ref: z.string() }),
-  component: CheckoutResultPage,
+  component: CheckoutResultRoute,
 });
+
+function CheckoutResultRoute() {
+  return (
+    <StaffGate>
+      <CheckoutResultPage />
+    </StaffGate>
+  );
+}
 
 function CheckoutResultPage() {
   const { ref } = Route.useSearch();
@@ -93,6 +102,7 @@ function CheckoutResultPage() {
             <OrderTracking
               status={status}
               deliveryOption={verification.data.deliveryOption}
+              deliveryAddress={verification.data.deliveryAddress}
               fulfilmentNote={verification.data.fulfilmentNote}
               orderRef={ref}
             />
@@ -121,7 +131,7 @@ function CheckoutResultPage() {
             </Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/products">Continue shopping</Link>
+            <Link to="/">Continue shopping</Link>
           </Button>
         </div>
       </div>

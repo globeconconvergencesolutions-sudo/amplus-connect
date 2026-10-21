@@ -3,28 +3,53 @@ import { Mail, MapPin, Phone } from "lucide-react";
 import { COMPANY } from "@/lib/company";
 import { BrandLogo } from "@/components/brand-logo";
 
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden>
+      <path d="M22 12.07C22 6.48 17.52 2 11.93 2S1.86 6.48 1.86 12.07c0 5.02 3.66 9.18 8.44 9.93v-7.03H7.9v-2.9h2.4V9.84c0-2.37 1.41-3.68 3.56-3.68 1.03 0 2.11.18 2.11.18v2.32h-1.19c-1.17 0-1.54.73-1.54 1.48v1.78h2.62l-.42 2.9h-2.2V22c4.78-.75 8.44-4.91 8.44-9.93z" />
+    </svg>
+  );
+}
+
 export function SiteFooter() {
   return (
-    <footer className="surface-ink mt-24">
+    <footer className="surface-ink mt-20">
       <div className="hazard-rule" />
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
+      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-3">
         <div className="md:col-span-2">
           <BrandLogo variant="footer" inverted />
           <p className="mt-5 max-w-md text-sm text-ink-muted">
-            Building, civil works and construction materials supply across Kenya. One accountable
-            partner from groundbreaking to handover.
+            Construction materials from the Amplus yard — priced online, paid by Equity transfer,
+            delivered to a drop point or your site pin.
           </p>
           <ul className="mt-6 space-y-2 text-sm text-ink-muted">
             <li className="flex items-center gap-2">
               <MapPin className="size-4 text-accent" /> {COMPANY.address}
             </li>
             <li className="flex items-center gap-2">
-              <Phone className="size-4 text-accent" /> {COMPANY.phone}
+              <Phone className="size-4 text-accent" />
+              <a href={`tel:${COMPANY.phone.replace(/\s/g, "")}`} className="hover:text-accent">
+                {COMPANY.phone}
+              </a>
             </li>
             <li className="flex items-center gap-2">
-              <Mail className="size-4 text-accent" /> {COMPANY.email}
+              <Mail className="size-4 text-accent" />
+              <a href={`mailto:${COMPANY.email}`} className="hover:text-accent">
+                {COMPANY.email}
+              </a>
             </li>
           </ul>
+          {COMPANY.facebook ? (
+            <a
+              href={COMPANY.facebook}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-ink-muted transition-colors hover:text-accent"
+            >
+              <FacebookIcon className="size-4 text-accent" />
+              Follow on Facebook
+            </a>
+          ) : null}
         </div>
 
         <div>
@@ -38,55 +63,48 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link to="/services" className="hover:text-accent">
-                Services
-              </Link>
-            </li>
-            <li>
-              <Link to="/projects" className="hover:text-accent">
-                Projects
-              </Link>
-            </li>
-            <li>
-              <Link to="/insights" className="hover:text-accent">
-                Insights
-              </Link>
-            </li>
-            <li>
               <Link to="/contact" className="hover:text-accent">
                 Contact
               </Link>
             </li>
-          </ul>
-        </div>
-
-        <div>
-          <h2 className="font-display text-sm uppercase tracking-widest text-ink-foreground">
-            Shop
-          </h2>
-          <ul className="mt-4 space-y-2 text-sm text-ink-muted">
+            {/* Brochure links kept for a later switch-on:
+            <li><Link to="/services">Services</Link></li>
+            <li><Link to="/projects">Projects</Link></li>
+            <li><Link to="/insights">Insights</Link></li>
+            */}
             <li>
-              <Link to="/products" className="hover:text-accent">
-                Materials catalogue
+              <Link to="/" className="hover:text-accent">
+                Shop materials
               </Link>
             </li>
+            {/* Online cart and customer orders stay in the app for staff. Off the public footer.
             <li>
               <Link to="/cart" className="hover:text-accent">
-                Shopping cart
+                Online cart (optional)
               </Link>
             </li>
             <li>
-              <Link to="/account" className="hover:text-accent">
+              <Link to="/account" search={{ tab: "orders" }} className="hover:text-accent">
                 My orders
               </Link>
             </li>
-            <li>
-              <Link to="/account" search={{ tab: "rewards" }} className="hover:text-accent">
-                Loyalty rewards
-              </Link>
-            </li>
+            */}
+            {COMPANY.facebook ? (
+              <li>
+                <a
+                  href={COMPANY.facebook}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hover:text-accent"
+                >
+                  Facebook
+                </a>
+              </li>
+            ) : null}
           </ul>
-          <p className="mt-6 text-xs text-ink-muted">Pay by Equity Bank transfer using your order number.</p>
+          <p className="mt-6 text-xs text-ink-muted">
+            Pay by Equity Bank transfer using your order number.
+          </p>
         </div>
       </div>
       <div className="border-t border-ink-muted/20">

@@ -1,13 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { quoteInputSchema } from "@/lib/delivery.server";
 
-const lineSchema = z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1).max(999) });
+const lineSchema = z.object({
+  productId: z.string().uuid(),
+  quantity: z.number().int().min(1).max(999),
+});
 
 const createOrderSchema = z.object({
   lines: z.array(lineSchema).min(1),
-  deliveryOption: z.string().min(1),
-  deliveryFee: z.number().min(0),
+  quote: quoteInputSchema,
   pointsToRedeem: z.number().int().min(0).default(0),
   address: z.object({
     recipient_name: z.string().min(2),
@@ -16,6 +19,7 @@ const createOrderSchema = z.object({
     town: z.string().optional().default(""),
     street: z.string().optional().default(""),
     notes: z.string().optional().default(""),
+    landmark: z.string().optional().default(""),
   }),
   origin: z.string().url(),
 });
@@ -35,7 +39,8 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
       .select("id, name, price_kes, stock, is_active")
       .in("id", productIds);
     if (productError) throw new Error(productError.message);
-    if (!products || products.length !== productIds.length) throw new Error("A product is no longer available");
+    if (!products || products.length !== productIds.length)
+      throw new Error("A product is no longer available");
 
     let subtotal = 0;
     const items = data.lines.map((line) => {
@@ -75,8 +80,57 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
       Math.floor(maxDiscount / Math.max(pointValue, 0.01)),
     );
     const discount = pointsRedeemed * pointValue;
-    const total = Math.max(subtotal + data.deliveryFee - discount, 1);
+    const { computeDeliveryQuote } = await import("@/lib/delivery.server");
+    const quote = await computeDeliveryQuote(data.quote);
+    if (!quote.allowed) {
+      throw new Error(quote.message ?? "Delivery is not available for this location.");
+    }
+    if (
+      data.quote.mode !== "pickup" &&
+      !data.address.county.trim() &&
+      data.quote.mode === "site_pin"
+    ) {
+      throw new Error("Please provide a county for site delivery.");
+    }
+    let county = data.address.county;
+    let town = data.address.town;
+    let landmark = data.address.landmark;
+    let street = data.address.street;
+    let dropPointName: string | undefined;
+    if (data.quote.mode === "drop_point") {
+      const { supabaseAdmin: adminForPoint } =
+        await import("@/integrations/supabase/client.server");
+      const { data: point } = await adminForPoint
+        .from("delivery_drop_points")
+        .select("name, county, town, landmark")
+        .eq("id", data.quote.dropPointId)
+        .maybeSingle();
+      if (point) {
+        county = point.county;
+        town = point.town;
+        landmark = point.landmark;
+        street = street || point.name;
+        dropPointName = point.name;
+      }
+    }
+
+    const total = Math.max(subtotal + quote.feeKes - discount, 1);
     const merchantReference = `AMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+    const deliveryAddress = {
+      recipient_name: data.address.recipient_name,
+      phone: data.address.phone,
+      county,
+      town,
+      street,
+      notes: data.address.notes,
+      landmark,
+      mode: quote.mode,
+      km: quote.km,
+      eta_days: quote.etaDays,
+      ...(quote.lat != null && quote.lng != null ? { lat: quote.lat, lng: quote.lng } : {}),
+      ...(quote.dropPointId ? { drop_point_id: quote.dropPointId } : {}),
+      ...(dropPointName ? { drop_point_name: dropPointName } : {}),
+    };
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -84,12 +138,12 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
         user_id: userId,
         merchant_reference: merchantReference,
         subtotal_kes: subtotal,
-        delivery_fee_kes: data.deliveryFee,
+        delivery_fee_kes: quote.feeKes,
         points_redeemed: pointsRedeemed,
         discount_kes: discount,
         total_kes: total,
-        delivery_option: data.deliveryOption,
-        delivery_address: data.address,
+        delivery_option: quote.mode,
+        delivery_address: deliveryAddress,
         customer_email: (claims as { email?: string }).email ?? null,
         customer_phone: data.address.phone,
       })
@@ -150,7 +204,9 @@ export const verifyPayment = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: order, error } = await supabase
       .from("orders")
-      .select("id, status, total_kes, merchant_reference, user_id, delivery_option, fulfilment_note")
+      .select(
+        "id, status, total_kes, merchant_reference, user_id, delivery_option, delivery_address, fulfilment_note",
+      )
       .eq("merchant_reference", data.merchantReference)
       .maybeSingle();
     if (error) throw new Error(error.message);
@@ -170,6 +226,7 @@ export const verifyPayment = createServerFn({ method: "POST" })
       merchantReference: order.merchant_reference,
       totalKes: Number(order.total_kes),
       deliveryOption: order.delivery_option,
+      deliveryAddress: order.delivery_address,
       fulfilmentNote: order.fulfilment_note,
     };
   });

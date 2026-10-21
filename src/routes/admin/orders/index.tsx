@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Loader2, MessageCircle, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import {
+  AdminBulkDeleteBar,
+  AdminDeleteButton,
+  AdminRowCheckbox,
+  AdminSelectAll,
+} from "@/components/admin-bulk-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,10 +21,18 @@ import {
 } from "@/components/ui/select";
 import { formatDate, formatKes, ORDER_STATUS_LABELS } from "@/lib/format";
 import { confirmBankPayment } from "@/lib/checkout.functions";
-import { listAdminOrders, sendDueOrderReminders, staffAdvanceFulfilment, staffCancelUnpaidOrder } from "@/lib/orders.functions";
+import { deleteOrders } from "@/lib/admin-delete.functions";
+import {
+  listAdminOrders,
+  sendDueOrderReminders,
+  staffAdvanceFulfilment,
+  staffCancelUnpaidOrder,
+} from "@/lib/orders.functions";
 import { customerCallHref, customerWhatsAppHref } from "@/lib/company";
 import { isPaidPipeline, nextFulfilment } from "@/lib/fulfilment";
+import { formatDeliveryDestination } from "@/lib/delivery";
 import { OrderTracking } from "@/components/order-tracking";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
@@ -43,6 +57,7 @@ type OrderRow = {
   customer_email: string | null;
   customer_phone: string | null;
   delivery_option: string | null;
+  delivery_address?: unknown;
   fulfilment_note: string | null;
   created_at: string;
   order_items: { id: string; product_name: string; quantity: number; line_total_kes: number }[];
@@ -78,7 +93,13 @@ function CopyValue({ value }: { value: string }) {
     }
   }
   return (
-    <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => void copy()}>
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="shrink-0"
+      onClick={() => void copy()}
+    >
       <Copy className="size-4" />
       {copied ? "Copied" : "Copy"}
     </Button>
@@ -89,16 +110,35 @@ function AdminOrdersPage() {
   const orders = useAllOrders();
   const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<string>("PAYMENT_PROCESSING");
+  const [query, setQuery] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [advancing, setAdvancing] = useState<string | null>(null);
   const [fulfilNote, setFulfilNote] = useState("");
   const [reminding, setReminding] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
-  const list = (orders.data ?? []).filter(
-    (order) => statusFilter === "all" || order.status === statusFilter,
-  );
+  const list = (orders.data ?? []).filter((order) => {
+    if (statusFilter !== "all" && order.status !== statusFilter) return false;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    const haystack = [
+      order.merchant_reference,
+      order.customer_email,
+      order.customer_phone,
+      order.delivery_option,
+      ...(order.order_items ?? []).map((item) => item.product_name),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(q);
+  });
+  const ids = useMemo(() => list.map((row) => row.id), [list]);
+  const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+  const someSelected = ids.some((id) => selected.has(id));
 
   async function confirmPayment(merchantReference: string) {
     setConfirming(merchantReference);
@@ -171,12 +211,30 @@ function AdminOrdersPage() {
     }
   }
 
-  const awaitingCount = (orders.data ?? []).filter((order) => order.status === "PAYMENT_PROCESSING")
-    .length;
+  async function removeOrders(orderIds: string[]) {
+    setDeleting(true);
+    try {
+      const result = await deleteOrders({ data: { ids: orderIds } });
+      toast.success(`Deleted ${result.deleted} order${result.deleted === 1 ? "" : "s"}`);
+      setSelected(new Set());
+      setExpanded(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-count"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete orders.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const awaitingCount = (orders.data ?? []).filter(
+    (order) => order.status === "PAYMENT_PROCESSING",
+  ).length;
 
   return (
     <AdminShell>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl">Orders</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -184,7 +242,14 @@ function AdminOrdersPage() {
             {awaitingCount > 0 ? ` · ${awaitingCount} awaiting confirmation` : ""}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          {ids.length > 0 ? (
+            <AdminSelectAll
+              checked={allSelected}
+              indeterminate={someSelected && !allSelected}
+              onCheckedChange={(next) => setSelected(next ? new Set(ids) : new Set())}
+            />
+          ) : null}
           <Button
             type="button"
             variant="outline"
@@ -194,23 +259,37 @@ function AdminOrdersPage() {
             {reminding ? <Loader2 className="animate-spin" /> : null}
             Send 24h reminders
           </Button>
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search ref, phone, product…"
+            className="w-full sm:w-56"
+          />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="All statuses" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {STATUSES.map((status) => (
-              <SelectItem key={status} value={status}>
-                {ORDER_STATUS_LABELS[status]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            <SelectTrigger className="w-full sm:w-56">
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              {STATUSES.map((status) => (
+                <SelectItem key={status} value={status}>
+                  {ORDER_STATUS_LABELS[status]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       <div className="mt-6 space-y-3">
+        <AdminBulkDeleteBar
+          count={selected.size}
+          noun="order"
+          warning="Selected orders and their line items and payments will be permanently removed. Linked tickets keep the conversation but lose the order link."
+          deleting={deleting}
+          onClear={() => setSelected(new Set())}
+          onConfirm={() => removeOrders([...selected])}
+        />
         {list.map((order) => {
           const payment = order.payments[0];
           const receipt = payment?.confirmation_code?.trim() || "";
@@ -223,45 +302,62 @@ function AdminOrdersPage() {
           );
           return (
             <div key={order.id} className="panel overflow-hidden">
-              <button
-                type="button"
-                className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left"
-                onClick={() => {
-                  const next = expanded === order.id ? null : order.id;
-                  setExpanded(next);
-                  setFulfilNote(next ? (order.fulfilment_note ?? "") : "");
-                }}
-              >
-                <div className="min-w-0">
-                  <p className="font-medium">{order.merchant_reference}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {order.customer_email} · {order.customer_phone} · {formatDate(order.created_at)}
-                  </p>
-                  {receipt ? (
-                    <p className="mt-1 font-mono text-sm font-semibold text-accent">
-                      Receipt {receipt}
+              <div className="flex items-start gap-3 p-4">
+                <div className="pt-1">
+                  <AdminRowCheckbox
+                    checked={selected.has(order.id)}
+                    onCheckedChange={(next) => {
+                      setSelected((prev) => {
+                        const copy = new Set(prev);
+                        if (next) copy.add(order.id);
+                        else copy.delete(order.id);
+                        return copy;
+                      });
+                    }}
+                    label={`Select order ${order.merchant_reference}`}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-left"
+                  onClick={() => {
+                    const next = expanded === order.id ? null : order.id;
+                    setExpanded(next);
+                    setFulfilNote(next ? (order.fulfilment_note ?? "") : "");
+                  }}
+                >
+                  <div className="min-w-0">
+                    <p className="font-medium">{order.merchant_reference}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {order.customer_email} · {order.customer_phone} ·{" "}
+                      {formatDate(order.created_at)}
                     </p>
-                  ) : null}
-                </div>
-                <div className="flex items-center gap-3">
-                  <p className="font-semibold">{formatKes(order.total_kes)}</p>
-                  <Badge
-                    variant={
-                      order.status === "PAID" || order.status === "DELIVERED"
-                        ? "default"
-                        : "secondary"
-                    }
-                  >
-                    {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] ??
-                      order.status}
-                  </Badge>
-                  {expanded === order.id ? (
-                    <ChevronUp className="size-4" />
-                  ) : (
-                    <ChevronDown className="size-4" />
-                  )}
-                </div>
-              </button>
+                    {receipt ? (
+                      <p className="mt-1 font-mono text-sm font-semibold text-accent">
+                        Receipt {receipt}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="font-semibold">{formatKes(order.total_kes)}</p>
+                    <Badge
+                      variant={
+                        order.status === "PAID" || order.status === "DELIVERED"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {ORDER_STATUS_LABELS[order.status as keyof typeof ORDER_STATUS_LABELS] ??
+                        order.status}
+                    </Badge>
+                    {expanded === order.id ? (
+                      <ChevronUp className="size-4" />
+                    ) : (
+                      <ChevronDown className="size-4" />
+                    )}
+                  </div>
+                </button>
+              </div>
 
               {expanded === order.id ? (
                 <div className="border-t border-border bg-secondary/30 p-4">
@@ -281,7 +377,8 @@ function AdminOrdersPage() {
                         ))}
                       </ul>
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Delivery: {order.delivery_option ?? "—"}
+                        Delivery:{" "}
+                        {formatDeliveryDestination(order.delivery_option, order.delivery_address)}
                       </p>
                     </div>
                     <div>
@@ -294,7 +391,9 @@ function AdminOrdersPage() {
                             Customer M-Pesa / bank receipt
                           </p>
                           <div className="mt-1 flex items-center justify-between gap-3">
-                            <p className="break-all font-mono text-lg font-bold leading-tight">{receipt}</p>
+                            <p className="break-all font-mono text-lg font-bold leading-tight">
+                              {receipt}
+                            </p>
                             <CopyValue value={receipt} />
                           </div>
                           <p className="mt-2 text-xs text-muted-foreground">
@@ -382,13 +481,16 @@ function AdminOrdersPage() {
                           <OrderTracking
                             status={order.status}
                             deliveryOption={order.delivery_option}
+                            deliveryAddress={order.delivery_address}
                             fulfilmentNote={order.fulfilment_note}
                             orderRef={order.merchant_reference}
                           />
                           {nextFulfilment(order.status, order.delivery_option) ? (
                             <>
                               <div className="space-y-1.5">
-                                <Label htmlFor={`note-${order.id}`}>Note to customer (optional)</Label>
+                                <Label htmlFor={`note-${order.id}`}>
+                                  Note to customer (optional)
+                                </Label>
                                 <Textarea
                                   id={`note-${order.id}`}
                                   rows={2}
@@ -404,7 +506,9 @@ function AdminOrdersPage() {
                                 disabled={advancing === order.id}
                                 onClick={() => void advanceFulfilment(order)}
                               >
-                                {advancing === order.id ? <Loader2 className="animate-spin" /> : null}
+                                {advancing === order.id ? (
+                                  <Loader2 className="animate-spin" />
+                                ) : null}
                                 {nextFulfilment(order.status, order.delivery_option)?.label}
                               </Button>
                             </>
@@ -415,8 +519,19 @@ function AdminOrdersPage() {
                       ) : null}
 
                       {order.status === "CANCELLED" ? (
-                        <p className="mt-4 text-sm text-muted-foreground">This order is cancelled.</p>
+                        <p className="mt-4 text-sm text-muted-foreground">
+                          This order is cancelled.
+                        </p>
                       ) : null}
+
+                      <div className="mt-4 border-t border-border pt-4">
+                        <AdminDeleteButton
+                          label={`Delete order ${order.merchant_reference}?`}
+                          warning="This order, its line items, and payments will be permanently removed. Linked tickets keep the conversation but lose the order link."
+                          deleting={deleting}
+                          onConfirm={() => removeOrders([order.id])}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

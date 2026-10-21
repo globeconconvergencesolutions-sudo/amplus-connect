@@ -35,8 +35,10 @@ export type AccountOrder = {
   total_kes: number;
   created_at: string;
   delivery_option?: string | null;
+  delivery_address?: unknown;
   fulfilment_note?: string | null;
-  order_items: { id: string; product_name: string; quantity: number; line_total_kes: number }[] | null;
+  order_items:
+    { id: string; product_name: string; quantity: number; line_total_kes: number }[] | null;
 };
 
 export function AccountOrderCard({
@@ -131,12 +133,22 @@ export function AccountOrderCard({
 
       <div className="flex flex-wrap gap-2 border-t border-border px-4 py-3">
         {awaiting ? (
-          <Button type="button" variant="accent" className="min-h-11 flex-1 sm:flex-none" onClick={() => setPayOpen(true)}>
+          <Button
+            type="button"
+            variant="accent"
+            className="min-h-11 flex-1 sm:flex-none"
+            onClick={() => setPayOpen(true)}
+          >
             Pay now
           </Button>
         ) : null}
         {processing ? (
-          <Button type="button" variant="accent" className="min-h-11 flex-1 sm:flex-none" onClick={() => setPayOpen(true)}>
+          <Button
+            type="button"
+            variant="accent"
+            className="min-h-11 flex-1 sm:flex-none"
+            onClick={() => setPayOpen(true)}
+          >
             Payment status
           </Button>
         ) : null}
@@ -174,7 +186,12 @@ export function AccountOrderCard({
               </label>
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={cancelling}>Keep order</AlertDialogCancel>
-                <Button type="button" variant="destructive" disabled={cancelling} onClick={() => void confirmCancel()}>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={cancelling}
+                  onClick={() => void confirmCancel()}
+                >
                   {cancelling ? <Loader2 className="animate-spin" /> : null}
                   Cancel order
                 </Button>
@@ -189,6 +206,7 @@ export function AccountOrderCard({
           <OrderTracking
             status={order.status}
             deliveryOption={order.delivery_option}
+            deliveryAddress={order.delivery_address}
             fulfilmentNote={order.fulfilment_note}
             orderRef={order.merchant_reference}
           />

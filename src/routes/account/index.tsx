@@ -2,8 +2,22 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect, type FormEvent } from "react";
 import { z } from "zod";
-import { ChevronLeft, ChevronRight, LifeBuoy, Loader2, LogOut, MapPin, MessageCircle, Package, Phone, Plus, Star, Trash2 } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  LifeBuoy,
+  Loader2,
+  LogOut,
+  MapPin,
+  MessageCircle,
+  Package,
+  Phone,
+  Plus,
+  Star,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { StaffGate } from "@/components/staff-gate";
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,7 +34,13 @@ import {
 } from "@/components/ui/dialog";
 import { useAccount, useSignOut } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { addressesQuery, loyaltyHistoryQuery, ordersQuery, ticketsQuery, wishlistQuery } from "@/lib/account";
+import {
+  addressesQuery,
+  loyaltyHistoryQuery,
+  ordersQuery,
+  ticketsQuery,
+  wishlistQuery,
+} from "@/lib/account";
 import { createGeneralTicket } from "@/lib/support.functions";
 import { COMPANY, supportLinks } from "@/lib/company";
 import { loyaltySettingsQuery } from "@/lib/catalog";
@@ -34,8 +54,16 @@ const TABS = ["profile", "orders", "support", "addresses", "wishlist", "rewards"
 
 export const Route = createFileRoute("/account/")({
   validateSearch: z.object({ tab: z.enum(TABS).optional() }),
-  component: AccountPage,
+  component: AccountRoute,
 });
+
+function AccountRoute() {
+  return (
+    <StaffGate>
+      <AccountPage />
+    </StaffGate>
+  );
+}
 
 function AccountPage() {
   const { user, profile, loading, isStaff } = useAccount();
@@ -60,7 +88,7 @@ function AccountPage() {
           <h1 className="text-2xl">Sign in to your account</h1>
           <Button variant="accent" size="lg" className="mt-6" asChild>
             <Link to="/auth" search={{ redirect: "/account" }}>
-              Sign in / register
+              Staff sign in
             </Link>
           </Button>
         </div>
@@ -190,7 +218,12 @@ function ProfileTab({ userId }: { userId: string }) {
         <Label htmlFor="phone">Phone</Label>
         <Input id="phone" name="phone" defaultValue={profile?.phone ?? ""} />
       </div>
-      <Button type="submit" variant="accent" className="min-h-11 w-full sm:w-auto" disabled={saving}>
+      <Button
+        type="submit"
+        variant="accent"
+        className="min-h-11 w-full sm:w-auto"
+        disabled={saving}
+      >
         {saving ? "Saving…" : "Save changes"}
       </Button>
     </form>
@@ -219,7 +252,7 @@ function OrdersTab({ userId }: { userId: string }) {
         <Package className="size-10 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">You haven't placed any orders yet.</p>
         <Button variant="accent" className="min-h-11" asChild>
-          <Link to="/products">Shop materials</Link>
+          <Link to="/">Shop materials</Link>
         </Button>
       </div>
     );
@@ -245,7 +278,10 @@ function OrdersTab({ userId }: { userId: string }) {
   const chips = [
     { id: "all" as const, label: "Active" },
     { id: "pay" as const, label: payCount > 0 ? `Pay now (${payCount})` : "Pay now" },
-    { id: "processing" as const, label: processingCount > 0 ? `Processing (${processingCount})` : "Processing" },
+    {
+      id: "processing" as const,
+      label: processingCount > 0 ? `Processing (${processingCount})` : "Processing",
+    },
     { id: "paid" as const, label: "Paid & delivery" },
     { id: "cancelled" as const, label: "Cancelled" },
   ];
@@ -253,8 +289,8 @@ function OrdersTab({ userId }: { userId: string }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Tap <span className="font-medium text-foreground">Pay now</span> on an order to see M-Pesa or
-        bank steps. One method at a time — then paste your receipt.
+        Tap <span className="font-medium text-foreground">Pay now</span> on an order to see M-Pesa
+        or bank steps. One method at a time — then paste your receipt.
       </p>
       <div className="flex gap-2 overflow-x-auto pb-1 [-webkit-overflow-scrolling:touch]">
         {chips.map((chip) => (
@@ -424,10 +460,7 @@ function SupportTab({ userId }: { userId: string }) {
                 Not related to an order
               </button>
               {(orders.data ?? []).map((order) => {
-                const title = orderHeadline(
-                  order.order_items,
-                  order.merchant_reference,
-                );
+                const title = orderHeadline(order.order_items, order.merchant_reference);
                 const selected = orderId === order.id;
                 return (
                   <button
@@ -437,13 +470,15 @@ function SupportTab({ userId }: { userId: string }) {
                     onClick={() => setOrderId(order.id)}
                     className={cn(
                       "w-full rounded-lg border px-3 py-2.5 text-left",
-                      selected ? "border-accent bg-accent/10" : "border-border hover:bg-secondary/60",
+                      selected
+                        ? "border-accent bg-accent/10"
+                        : "border-border hover:bg-secondary/60",
                     )}
                   >
                     <p className="truncate text-sm font-semibold">{title}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {ORDER_STATUS_LABELS[order.status] ?? order.status} · {formatDate(order.created_at)} ·{" "}
-                      {formatKes(order.total_kes)}
+                      {ORDER_STATUS_LABELS[order.status] ?? order.status} ·{" "}
+                      {formatDate(order.created_at)} · {formatKes(order.total_kes)}
                     </p>
                   </button>
                 );
@@ -658,7 +693,11 @@ function WishlistTab({ userId }: { userId: string }) {
   const { add } = useCart();
 
   async function remove(id: string) {
-    await supabase.from("wishlist_items").delete().eq("id", id);
+    const { error } = await supabase.from("wishlist_items").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["wishlist", userId] });
   }
 

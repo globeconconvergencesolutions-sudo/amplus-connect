@@ -1,9 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import {
+  AdminBulkDeleteBar,
+  AdminDeleteButton,
+  AdminRowCheckbox,
+  AdminSelectAll,
+} from "@/components/admin-bulk-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
+import { deleteCustomers } from "@/lib/admin-delete.functions";
 import { formatDate, formatKes, tierLabel } from "@/lib/format";
 
 type ProfileRow = {
@@ -48,61 +55,125 @@ function useAllProfiles() {
 
 function AdminCustomersPage() {
   const customers = useAllProfiles();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
-  const filtered = (customers.data ?? []).filter((c) => {
-    if (!search.trim()) return true;
+  const filtered = useMemo(() => {
+    const rows = customers.data ?? [];
+    if (!search.trim()) return rows;
     const q = search.toLowerCase();
-    return (
-      (c.full_name ?? "").toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q)
+    return rows.filter(
+      (c) =>
+        (c.full_name ?? "").toLowerCase().includes(q) || (c.email ?? "").toLowerCase().includes(q),
     );
-  });
+  }, [customers.data, search]);
+
+  const ids = useMemo(() => filtered.map((row) => row.id), [filtered]);
+  const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+  const someSelected = ids.some((id) => selected.has(id));
+
+  async function removeCustomers(customerIds: string[]) {
+    setDeleting(true);
+    try {
+      const result = await deleteCustomers({ data: { ids: customerIds } });
+      toast.success(`Deleted ${result.deleted} customer${result.deleted === 1 ? "" : "s"}`);
+      setSelected(new Set());
+      setExpanded(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-customers"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-tickets"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-count"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete customers.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <AdminShell>
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl">Customers</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {filtered.length} of {customers.data?.length ?? 0}
           </p>
         </div>
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name or email…"
-          className="w-64"
-        />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          {ids.length > 0 ? (
+            <AdminSelectAll
+              checked={allSelected}
+              indeterminate={someSelected && !allSelected}
+              onCheckedChange={(next) => setSelected(next ? new Set(ids) : new Set())}
+            />
+          ) : null}
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or email…"
+            className="w-full sm:w-64"
+          />
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">
+        <AdminBulkDeleteBar
+          count={selected.size}
+          noun="customer"
+          warning="This permanently deletes each selected account (auth user), their profile, orders, tickets, and related data. You cannot delete yourself or the last super admin."
+          deleting={deleting}
+          onClear={() => setSelected(new Set())}
+          onConfirm={() => removeCustomers([...selected])}
+        />
         {filtered.map((customer) => (
           <div key={customer.id} className="panel overflow-hidden">
-            <button
-              type="button"
-              className="flex w-full flex-wrap items-center justify-between gap-3 p-4 text-left"
-              onClick={() => setExpanded(expanded === customer.id ? null : customer.id)}
-            >
-              <div>
-                <p className="font-medium">{customer.full_name || "Unnamed"}</p>
-                <p className="text-xs text-muted-foreground">
-                  {customer.email} · {customer.phone} · Joined {formatDate(customer.created_at)}
-                </p>
+            <div className="flex items-start gap-3 p-4">
+              <div className="pt-1">
+                <AdminRowCheckbox
+                  checked={selected.has(customer.id)}
+                  onCheckedChange={(next) => {
+                    setSelected((prev) => {
+                      const copy = new Set(prev);
+                      if (next) copy.add(customer.id);
+                      else copy.delete(customer.id);
+                      return copy;
+                    });
+                  }}
+                  label={`Select ${customer.full_name || customer.email || "customer"}`}
+                />
               </div>
-              <div className="flex items-center gap-3">
-                <Badge variant="secondary">{tierLabel(customer.tier)}</Badge>
-                <span className="text-sm font-semibold">{customer.loyalty_points} pts</span>
-                {expanded === customer.id ? (
-                  <ChevronUp className="size-4" />
-                ) : (
-                  <ChevronDown className="size-4" />
-                )}
-              </div>
-            </button>
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-3 text-left"
+                onClick={() => setExpanded(expanded === customer.id ? null : customer.id)}
+              >
+                <div>
+                  <p className="font-medium">{customer.full_name || "Unnamed"}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {customer.email} · {customer.phone} · Joined {formatDate(customer.created_at)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary">{tierLabel(customer.tier)}</Badge>
+                  <span className="text-sm font-semibold">{customer.loyalty_points} pts</span>
+                  {expanded === customer.id ? (
+                    <ChevronUp className="size-4" />
+                  ) : (
+                    <ChevronDown className="size-4" />
+                  )}
+                </div>
+              </button>
+            </div>
             {expanded === customer.id ? (
               <div className="border-t border-border bg-secondary/30 p-4">
-                <CustomerDetail customer={customer} />
+                <CustomerDetail
+                  customer={customer}
+                  deleting={deleting}
+                  onDelete={() => removeCustomers([customer.id])}
+                />
               </div>
             ) : null}
           </div>
@@ -117,7 +188,15 @@ function AdminCustomersPage() {
 
 const TIERS = ["bronze", "silver", "gold"] as const;
 
-function CustomerDetail({ customer }: { customer: ProfileRow }) {
+function CustomerDetail({
+  customer,
+  deleting,
+  onDelete,
+}: {
+  customer: ProfileRow;
+  deleting: boolean;
+  onDelete: () => void | Promise<void>;
+}) {
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [tier, setTier] = useState<(typeof TIERS)[number]>(
@@ -208,9 +287,17 @@ function CustomerDetail({ customer }: { customer: ProfileRow }) {
             </Select>
           </div>
         </div>
-        <Button type="submit" variant="outline" size="sm" disabled={saving}>
-          {saving ? "Saving…" : "Save"}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant="outline" size="sm" disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </Button>
+          <AdminDeleteButton
+            label={`Delete ${customer.full_name || customer.email || "this customer"}?`}
+            warning="This permanently deletes their account, profile, orders, tickets, and related data. You cannot delete yourself or the last super admin."
+            deleting={deleting}
+            onConfirm={onDelete}
+          />
+        </div>
       </form>
     </div>
   );

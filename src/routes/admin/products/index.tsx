@@ -30,7 +30,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { categoriesQuery, type Product } from "@/lib/catalog";
+import { categoriesQuery, productMatchesQuery, type Product } from "@/lib/catalog";
 import { formatKes } from "@/lib/format";
 import { ImageField } from "@/components/image-field";
 import { GalleryField } from "@/components/gallery-field";
@@ -77,12 +77,18 @@ function AdminProductsPage() {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
-    const list = products.data ?? [];
-    if (categoryFilter === "all") return list;
-    return list.filter((p) => p.category_id === categoryFilter);
-  }, [products.data, categoryFilter]);
+    let list = products.data ?? [];
+    if (categoryFilter !== "all") list = list.filter((p) => p.category_id === categoryFilter);
+    const q = query.trim();
+    if (!q) return list;
+    const names = new Map((categories.data ?? []).map((category) => [category.id, category.name]));
+    return list.filter((product) =>
+      productMatchesQuery(product, q, product.category_id ? names.get(product.category_id) : null),
+    );
+  }, [products.data, categories.data, categoryFilter, query]);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ["admin-products"] });
@@ -117,9 +123,15 @@ function AdminProductsPage() {
             {filtered.length} of {products.data?.length ?? 0} products
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center">
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search name, brand, size…"
+            className="w-full sm:w-56"
+          />
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-48">
+            <SelectTrigger className="w-full sm:w-48">
               <SelectValue placeholder="All categories" />
             </SelectTrigger>
             <SelectContent>
@@ -131,13 +143,73 @@ function AdminProductsPage() {
               ))}
             </SelectContent>
           </Select>
-          <Button variant="accent" onClick={() => setEditing("new")}>
+          <Button variant="accent" className="w-full sm:w-auto" onClick={() => setEditing("new")}>
             <Plus /> New product
           </Button>
         </div>
       </div>
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-border">
+      <div className="mt-6 space-y-3 md:hidden">
+        {filtered.map((product) => (
+          <article key={product.id} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded bg-secondary">
+                {coverUrl(product.image_url, product.gallery) ? (
+                  <img
+                    src={coverUrl(product.image_url, product.gallery)!}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Package className="size-4 text-muted-foreground" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="font-medium leading-snug">{product.name}</p>
+                <p className="truncate text-xs text-muted-foreground">{product.slug}</p>
+                <p className="mt-1 text-sm">
+                  {formatKes(product.price_kes)}
+                  <span
+                    className={product.stock <= 0 ? "text-destructive" : "text-muted-foreground"}
+                  >
+                    {" "}
+                    · {product.stock} in stock
+                  </span>
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                Active
+                <Switch
+                  checked={product.is_active}
+                  onCheckedChange={() => toggle(product, "is_active")}
+                />
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                Featured
+                <Switch
+                  checked={product.is_featured}
+                  onCheckedChange={() => toggle(product, "is_featured")}
+                />
+              </label>
+              <div className="ml-auto flex gap-1">
+                <Button variant="ghost" size="icon" onClick={() => setEditing(product)}>
+                  <Pencil className="size-4" />
+                </Button>
+                <ProductDelete name={product.name} onDelete={() => remove(product.id)} />
+              </div>
+            </div>
+          </article>
+        ))}
+        {!products.isLoading && filtered.length === 0 ? (
+          <p className="rounded-xl border border-border px-4 py-10 text-center text-sm text-muted-foreground">
+            No products found.
+          </p>
+        ) : null}
+      </div>
+
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border border-border md:block">
         <table className="w-full text-sm">
           <thead className="bg-secondary/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
@@ -194,27 +266,7 @@ function AdminProductsPage() {
                     <Button variant="ghost" size="icon" onClick={() => setEditing(product)}>
                       <Pencil className="size-4" />
                     </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <Trash2 className="size-4 text-destructive" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete {product.name}?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This can't be undone. The product will be removed from the catalogue.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => remove(product.id)}>
-                            Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <ProductDelete name={product.name} onDelete={() => remove(product.id)} />
                   </div>
                 </td>
               </tr>
@@ -250,6 +302,30 @@ function AdminProductsPage() {
         </DialogContent>
       </Dialog>
     </AdminShell>
+  );
+}
+
+function ProductDelete({ name, onDelete }: { name: string; onDelete: () => void }) {
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label={`Delete ${name}`}>
+          <Trash2 className="size-4 text-destructive" />
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete {name}?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This can't be undone. The product will be removed from the catalogue.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onDelete}>Delete</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }
 

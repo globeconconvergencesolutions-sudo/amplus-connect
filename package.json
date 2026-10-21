@@ -18,7 +18,12 @@
     "format": "prettier --write .",
     "seed:admin": "node --env-file=.env scripts/seed-super-admin.mjs",
     "apply:support-tickets": "node --env-file=.env scripts/apply-support-tickets.mjs",
-    "apply:order-cancel": "node --env-file=.env scripts/apply-order-cancel.mjs"
+    "apply:order-cancel": "node --env-file=.env scripts/apply-order-cancel.mjs",
+    "apply:delivery": "node --env-file=.env scripts/apply-delivery.mjs",
+    "apply:interest-leads": "node --env-file=.env scripts/apply-interest-leads.mjs",
+    "apply:invoices": "node --env-file=.env scripts/apply-invoices.mjs",
+    "apply:admin-deletes": "node --env-file=.env scripts/apply-admin-deletes.mjs",
+    "apply:staff-invites": "node --env-file=.env scripts/apply-staff-invites.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -62,9 +67,12 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "input-otp": "^1.4.2",
+    "leaflet": "^1.9.4",
     "lucide-react": "^0.575.0",
     "nodemailer": "^10.0.12",
+    "pdfkit": "^0.20.2",
     "react": "^19.2.0",
     "react-day-picker": "^9.14.0",
     "react-dom": "^19.2.0",
@@ -82,8 +90,10 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@tanstack/devtools-vite": "^0.8.5",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^22.16.5",
     "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.6",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",

@@ -1,18 +1,9 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
-import {
-  Gift,
-  Heart,
-  LayoutDashboard,
-  LogOut,
-  Menu,
-  Package,
-  ShoppingCart,
-  User,
-  X,
-} from "lucide-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect, useState, type FormEvent } from "react";
+import { LayoutDashboard, LogOut, Menu, Search, SearchX, User, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,66 +12,124 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useCart } from "@/lib/cart";
-import { useAccount, useSignOut } from "@/hooks/use-auth";
+import { endNonStaffSession, useAccount, useSignOut } from "@/hooks/use-auth";
 import { COMPANY } from "@/lib/company";
 import { BrandLogo } from "@/components/brand-logo";
+import { categoriesQuery, filterShopProducts, productsQuery } from "@/lib/catalog";
 
-const NAV = [
-  { to: "/services", label: "Services" },
-  { to: "/projects", label: "Projects" },
-  { to: "/products", label: "Shop" },
-  { to: "/insights", label: "Insights" },
-  { to: "/about", label: "About" },
-  { to: "/contact", label: "Contact" },
-] as const;
+// Brochure sections kept in the repo but off the chrome until the client wants them back.
+// const NAV = [
+//   { to: "/services", label: "Services" },
+//   { to: "/projects", label: "Projects" },
+//   { to: "/products", label: "Shop" },
+//   { to: "/insights", label: "Insights" },
+//   { to: "/about", label: "About" },
+//   { to: "/contact", label: "Contact" },
+// ] as const;
 
 export function SiteHeader() {
-  const { count } = useCart();
-  const { user, profile, isStaff } = useAccount();
+  const { user, profile, isStaff, loading, rolesError } = useAccount();
   const { signOut, signingOut } = useSignOut();
   const displayName = profile?.full_name || user?.email || "My account";
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const urlQuery = useRouterState({
+    select: (state) => {
+      const search = state.location.search as { q?: unknown };
+      return typeof search?.q === "string" ? search.q : "";
+    },
+  });
+  const shopLookup = useRouterState({
+    select: (state) => {
+      const search = state.location.search as { q?: unknown; category?: unknown };
+      const path = state.location.pathname;
+      return {
+        onShop: path === "/" || path === "/products" || path === "/products/",
+        q: typeof search?.q === "string" ? search.q : "",
+        category: typeof search?.category === "string" ? search.category : "",
+      };
+    },
+  });
+
+  useEffect(() => {
+    setQuery(urlQuery);
+  }, [urlQuery]);
+
+  useEffect(() => {
+    if (loading || rolesError || !user || isStaff) return;
+    void endNonStaffSession();
+  }, [loading, rolesError, user, isStaff]);
+
+  function onSearch(event: FormEvent) {
+    event.preventDefault();
+    const q = query.trim();
+    setOpen(false);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    void navigate({
+      to: "/",
+      search: q ? { q } : {},
+    });
+  }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-      <div className="mx-auto flex h-[4.75rem] max-w-7xl items-center gap-6 px-4 sm:h-20 sm:px-6">
-        <Link to="/" className="flex shrink-0 items-center" onClick={() => setOpen(false)}>
-          <BrandLogo variant="header" />
-        </Link>
-
-        <nav className="ml-auto hidden items-center gap-1 lg:flex">
-          {NAV.map((item) => (
-            <Link
-              key={item.to}
-              to={item.to}
-              className="rounded-sm px-3 py-2 text-sm font-semibold text-foreground/80 transition-colors hover:bg-secondary hover:text-foreground [&.active]:text-accent"
+    <header className="sticky top-0 z-50 border-b border-border/80 bg-background/90 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:gap-6 lg:py-3.5">
+        <div className="flex items-center gap-3">
+          <Link to="/" className="flex shrink-0 items-center" onClick={() => setOpen(false)}>
+            <BrandLogo variant="header" />
+          </Link>
+          <div className="ml-auto flex items-center gap-2 lg:hidden">
+            {/* Cart stays in the app for staff via /cart. Hidden on the shop.
+            <Button variant="ghost" size="icon" asChild aria-label="Shopping cart">
+              <Link to="/cart" className="relative">
+                <ShoppingCart />
+              </Link>
+            </Button>
+            */}
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Toggle menu"
+              onClick={() => setOpen((value) => !value)}
             >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+              {open ? <X /> : <Menu />}
+            </Button>
+          </div>
+        </div>
 
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <Button variant="ghost" size="icon" asChild aria-label="Shopping cart">
-            <Link to="/cart" className="relative">
-              <ShoppingCart />
-              {count > 0 ? (
-                <Badge className="absolute -right-1 -top-1 h-5 min-w-5 justify-center bg-accent px-1 text-[0.65rem] text-accent-foreground">
-                  {count}
-                </Badge>
-              ) : null}
-            </Link>
+        <form onSubmit={onSearch} className="relative min-w-0 flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search ballast, cement, size…"
+            className="h-11 rounded-full border-border/80 bg-card/90 pl-9 pr-24 shadow-[var(--shadow-panel)]"
+          />
+          <Button
+            type="submit"
+            variant="accent"
+            size="sm"
+            className="absolute right-1.5 top-1/2 h-8 -translate-y-1/2 rounded-full px-4"
+          >
+            Search
           </Button>
+        </form>
 
-          {user ? (
+        <div className="hidden items-center gap-2 lg:flex">
+          {/* Cart icon commented out for shoppers. Staff can still open /cart.
+          <Button variant="ghost" size="icon" asChild aria-label="Shopping cart">
+            <Link to="/cart"><ShoppingCart /></Link>
+          </Button>
+          */}
+
+          {isStaff && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="hidden max-w-48 sm:inline-flex"
+                  className="max-w-48 rounded-full"
                   aria-label="Account menu"
                 >
                   <User />
@@ -95,33 +144,25 @@ export function SiteHeader() {
                   ) : null}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {isStaff ? (
-                  <DropdownMenuItem asChild>
-                    <Link to="/admin">
-                      <LayoutDashboard /> Admin portal
-                    </Link>
-                  </DropdownMenuItem>
-                ) : null}
                 <DropdownMenuItem asChild>
-                  <Link to="/account">
-                    <User /> My account
+                  <Link to="/admin">
+                    <LayoutDashboard /> Admin portal
                   </Link>
                 </DropdownMenuItem>
+                {/* Customer account links stay in the repo, off the shop.
                 <DropdownMenuItem asChild>
-                  <Link to="/account" search={{ tab: "orders" }}>
-                    <Package /> My orders
-                  </Link>
+                  <Link to="/account"><User /> My account</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/account" search={{ tab: "wishlist" }}>
-                    <Heart /> Wishlist
-                  </Link>
+                  <Link to="/account" search={{ tab: "orders" }}><Package /> My orders</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/account" search={{ tab: "rewards" }}>
-                    <Gift /> Rewards
-                  </Link>
+                  <Link to="/account" search={{ tab: "wishlist" }}><Heart /> Wishlist</Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/account" search={{ tab: "rewards" }}><Gift /> Rewards</Link>
+                </DropdownMenuItem>
+                */}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   disabled={signingOut}
@@ -135,71 +176,49 @@ export function SiteHeader() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          ) : (
-            <Button
-              variant="accent"
-              size="sm"
-              onClick={() => navigate({ to: "/auth" })}
-              className="hidden sm:inline-flex"
-            >
-              Sign in
-            </Button>
-          )}
-
+          ) : null}
+          {/* Public sign-in is commented out. Staff use /auth or /admin.
           <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden"
-            aria-label="Toggle menu"
-            onClick={() => setOpen((value) => !value)}
+            variant="accent"
+            size="sm"
+            className="rounded-full"
+            onClick={() => navigate({ to: "/auth" })}
           >
-            {open ? <X /> : <Menu />}
+            Sign in
           </Button>
+          */}
         </div>
       </div>
+
+      <SearchMiss lookup={shopLookup} />
 
       {open ? (
         <div className="border-t border-border bg-background lg:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col px-4 py-2">
-            {NAV.map((item) => (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setOpen(false)}
-                className="border-b border-border/60 py-3 text-sm font-semibold"
-              >
-                {item.label}
-              </Link>
-            ))}
-            {user ? (
+            <Link
+              to="/"
+              onClick={() => setOpen(false)}
+              className="border-b border-border/60 py-3 text-sm font-semibold"
+            >
+              Shop materials
+            </Link>
+            {/* About / Contact stay in the footer for the Jumia-style chrome. */}
+            {isStaff && user ? (
               <>
                 <p className="pt-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Signed in as <span className="normal-case tracking-normal">{displayName}</span>
                 </p>
-                {isStaff ? (
-                  <Link
-                    to="/admin"
-                    onClick={() => setOpen(false)}
-                    className="border-b border-border/60 py-3 text-sm font-semibold text-accent"
-                  >
-                    Admin portal
-                  </Link>
-                ) : null}
                 <Link
-                  to="/account"
+                  to="/admin"
                   onClick={() => setOpen(false)}
                   className="border-b border-border/60 py-3 text-sm font-semibold text-accent"
                 >
-                  My account
+                  Admin portal
                 </Link>
-                <Link
-                  to="/account"
-                  search={{ tab: "orders" }}
-                  onClick={() => setOpen(false)}
-                  className="border-b border-border/60 py-3 text-sm font-semibold"
-                >
-                  My orders
-                </Link>
+                {/* Customer account links stay off the shop menu.
+                <Link to="/account" onClick={() => setOpen(false)}>My account</Link>
+                <Link to="/account" search={{ tab: "orders" }} onClick={() => setOpen(false)}>My orders</Link>
+                */}
                 <button
                   type="button"
                   onClick={() => void signOut()}
@@ -209,15 +228,12 @@ export function SiteHeader() {
                   <LogOut className="size-4" /> {signingOut ? "Signing out…" : "Sign out"}
                 </button>
               </>
-            ) : (
-              <Link
-                to="/auth"
-                onClick={() => setOpen(false)}
-                className="py-3 text-sm font-semibold text-accent"
-              >
-                Sign in or register
-              </Link>
-            )}
+            ) : null}
+            {/* Public sign-in and registration are commented out.
+            <Link to="/auth" onClick={() => setOpen(false)}>
+              Sign in or register
+            </Link>
+            */}
             <a
               href={`tel:${COMPANY.phone.replace(/\s/g, "")}`}
               className="py-3 text-sm text-muted-foreground"
@@ -228,5 +244,62 @@ export function SiteHeader() {
         </div>
       ) : null}
     </header>
+  );
+}
+
+function SearchMiss({ lookup }: { lookup: { onShop: boolean; q: string; category: string } }) {
+  const navigate = useNavigate();
+  const active = lookup.onShop && Boolean(lookup.q.trim() || lookup.category.trim());
+  const products = useQuery({ ...productsQuery(), enabled: active });
+  const categories = useQuery({ ...categoriesQuery(), enabled: active });
+  const waiting = products.isLoading || (categories.isLoading && !categories.isError);
+  if (!active || waiting || products.isError) return null;
+
+  const hits = filterShopProducts(products.data ?? [], categories.data ?? [], lookup);
+  if (hits.length > 0) return null;
+
+  const known = (categories.data ?? []).find((row) => row.slug === lookup.category.trim());
+  const q = lookup.q.trim();
+  const title = q
+    ? known
+      ? `No materials match “${q}” in ${known.name}.`
+      : `No materials match “${q}”.`
+    : known
+      ? `Nothing is listed under ${known.name}.`
+      : "Nothing is listed in that category.";
+
+  return (
+    <div className="border-t border-border/70 bg-card" role="status">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="flex min-w-0 items-start gap-3">
+          <SearchX className="mt-0.5 size-5 shrink-0 text-accent" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">{title}</p>
+            <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+              Try a size, brand, or material — or call the yard on{" "}
+              <a
+                href={`tel:${COMPANY.phone.replace(/\s/g, "")}`}
+                className="font-medium text-foreground"
+              >
+                {COMPANY.phone}
+              </a>
+              .
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full shrink-0 rounded-full sm:w-auto"
+          onClick={() => {
+            window.scrollTo({ top: 0 });
+            void navigate({ to: "/", search: {} });
+          }}
+        >
+          {q ? "Clear search" : "Show all materials"}
+        </Button>
+      </div>
+    </div>
   );
 }

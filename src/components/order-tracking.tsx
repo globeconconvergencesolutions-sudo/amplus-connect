@@ -1,29 +1,49 @@
 import { Check } from "lucide-react";
 import { COMPANY, supportLinks } from "@/lib/company";
 import { deliveryLabel, fulfilmentSteps } from "@/lib/fulfilment";
+import { formatDeliveryDestination, mapsUrl, parseDeliveryAddress } from "@/lib/delivery";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function OrderTracking({
   status,
   deliveryOption,
+  deliveryAddress,
   fulfilmentNote,
   orderRef,
 }: {
   status: string;
   deliveryOption: string | null | undefined;
+  deliveryAddress?: unknown;
   fulfilmentNote?: string | null | undefined;
   orderRef?: string;
 }) {
   const steps = fulfilmentSteps(status, deliveryOption);
   const current = steps.find((step) => step.current) ?? steps.find((step) => !step.done);
   const links = supportLinks(orderRef ? { orderRef } : undefined);
+  const parsed = parseDeliveryAddress(deliveryAddress);
+  const destination = formatDeliveryDestination(deliveryOption, deliveryAddress);
+  const mapHref =
+    parsed?.lat != null && parsed.lng != null ? mapsUrl(parsed.lat, parsed.lng) : null;
 
   return (
     <div className="space-y-4">
       <div>
         <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-accent">Delivery</p>
-        <p className="mt-1 text-sm font-medium">{deliveryLabel(deliveryOption)}</p>
+        <p className="mt-1 text-sm font-medium">{destination || deliveryLabel(deliveryOption)}</p>
+        {parsed?.km ? (
+          <p className="mt-1 text-xs text-muted-foreground">About {parsed.km} km from the yard</p>
+        ) : null}
+        {mapHref ? (
+          <a
+            className="mt-1 inline-block text-xs font-medium text-accent hover:underline"
+            href={mapHref}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open map pin
+          </a>
+        ) : null}
         {current ? <p className="mt-1 text-sm text-muted-foreground">{current.detail}</p> : null}
       </div>
       <ol className="space-y-3">
@@ -42,7 +62,12 @@ export function OrderTracking({
               {step.done ? <Check className="size-3.5" /> : index + 1}
             </span>
             <div>
-              <p className={cn("text-sm font-semibold", !step.done && !step.current && "text-muted-foreground")}>
+              <p
+                className={cn(
+                  "text-sm font-semibold",
+                  !step.done && !step.current && "text-muted-foreground",
+                )}
+              >
                 {step.title}
               </p>
               <p className="text-xs text-muted-foreground">{step.detail}</p>

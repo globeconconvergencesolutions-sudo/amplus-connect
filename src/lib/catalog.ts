@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isMissingRelation } from "@/lib/supabase-errors";
 
 function unwrap<T>({ data, error }: { data: T | null; error: { message: string } | null }): T {
   if (error) throw new Error(error.message);
@@ -27,6 +28,64 @@ export type Product = {
 };
 
 export type Category = { id: string; name: string; slug: string; description: string | null };
+
+function specText(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) return value.map(specText).filter(Boolean).join(" ");
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>)
+      .map(([key, entry]) => `${key} ${specText(entry)}`)
+      .join(" ");
+  }
+  return "";
+}
+
+/** True when every word in the query appears in the product's public copy. */
+export function productMatchesQuery(
+  product: Product,
+  query: string,
+  categoryName?: string | null,
+): boolean {
+  const tokens = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const haystack = [
+    product.name,
+    product.brand,
+    product.unit,
+    product.short_description,
+    product.description,
+    product.seo_title,
+    product.seo_description,
+    categoryName,
+    specText(product.specifications),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  return tokens.every((token) => haystack.includes(token));
+}
+
+export function filterShopProducts(
+  products: Product[],
+  categories: Category[],
+  search: { q?: string | null; category?: string | null },
+): Product[] {
+  let list = products;
+  const categorySlug = search.category?.trim();
+  if (categorySlug) {
+    const match = categories.find((row) => row.slug === categorySlug);
+    list = match ? list.filter((product) => product.category_id === match.id) : [];
+  }
+  const q = search.q?.trim() ?? "";
+  if (!q) return list;
+  const names = new Map(categories.map((row) => [row.id, row.name]));
+  return list.filter((product) =>
+    productMatchesQuery(product, q, product.category_id ? names.get(product.category_id) : null),
+  );
+}
 
 export const categoriesQuery = () =>
   queryOptions({
@@ -82,7 +141,7 @@ export const relatedProductsQuery = (categoryId: string | null, excludeId: strin
           .eq("category_id", categoryId)
           .neq("id", excludeId)
           .order("name", { ascending: true })
-          .limit(4),
+          .limit(64),
       );
     },
   });
@@ -217,6 +276,57 @@ export type LoyaltySettings = {
   gold_threshold: number;
   max_redeem_percent: number;
 };
+
+export const deliverySettingsQuery = () =>
+  queryOptions({
+    queryKey: ["delivery-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("delivery_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+      if (error) {
+        if (isMissingRelation(error)) return null;
+        throw new Error(error.message);
+      }
+      return data;
+    },
+  });
+
+export const deliveryBandsQuery = () =>
+  queryOptions({
+    queryKey: ["delivery-bands"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("delivery_bands")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (error) {
+        if (isMissingRelation(error)) return [];
+        throw new Error(error.message);
+      }
+      return data ?? [];
+    },
+  });
+
+export const deliveryDropPointsQuery = (opts?: { staff?: boolean }) =>
+  queryOptions({
+    queryKey: ["delivery-drop-points", opts?.staff ?? false],
+    queryFn: async () => {
+      let query = supabase
+        .from("delivery_drop_points")
+        .select("*")
+        .order("sort_order", { ascending: true });
+      if (!opts?.staff) query = query.eq("is_active", true);
+      const { data, error } = await query;
+      if (error) {
+        if (isMissingRelation(error)) return [];
+        throw new Error(error.message);
+      }
+      return data ?? [];
+    },
+  });
 
 export const loyaltySettingsQuery = () =>
   queryOptions({
