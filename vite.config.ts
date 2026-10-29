@@ -76,7 +76,14 @@ export default defineConfig(({ command, mode }) => {
       // Host Africa DirectAdmin runs a long-lived Node process (same shape as Kalimoni parish-api).
       // Override with NITRO_PRESET=cloudflare-module for a Workers build.
       ...(command === "build"
-        ? [nitro({ preset: process.env["NITRO_PRESET"] || "node-server" })]
+        ? [
+            nitro({
+              preset: process.env["NITRO_PRESET"] || "node-server",
+              // pdfkit resolves its fonts via package.json "imports" (#standard-fonts/*),
+              // which breaks once bundled. Keep it external and ship the full package.
+              traceDeps: ["pdfkit*"],
+            }),
+          ]
         : []),
       viteReact(),
     ],

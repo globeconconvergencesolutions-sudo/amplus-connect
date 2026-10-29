@@ -55,7 +55,7 @@ function AboutPage() {
             <p className="mt-4 text-base leading-relaxed text-muted-foreground">
               Today we deliver residential, commercial, industrial and institutional projects across
               Kenya, and supply verified construction materials — cement, steel, roofing, finishes,
-              plumbing and tools — through our online store with nationwide delivery.
+              plumbing and tools — ready to collect from our yard on Mombasa Road.
             </p>
             {COMPANY.facebook ? (
               <p className="mt-4 text-sm text-muted-foreground">

@@ -74,7 +74,7 @@ export function BankPaymentPanel({
         <div className="rounded-xl border border-border bg-secondary/50 p-4">
           <p className="text-sm font-semibold">We have your payment notice</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Staff will match {formatKes(amountKes)} against M-Pesa or the bank, then prepare delivery.
+            Staff will match {formatKes(amountKes)} against M-Pesa or the bank, then prepare your order.
             You do not need to pay again.
           </p>
         </div>

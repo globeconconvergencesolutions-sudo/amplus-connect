@@ -1,29 +1,53 @@
 function publicEnv(key: string, fallback: string): string {
-  const fromVite = import.meta.env[key];
+  const env = (import.meta as ImportMeta & { env?: Record<string, unknown> }).env;
+  const fromVite = env?.[key];
   if (typeof fromVite === "string" && fromVite.trim()) return fromVite.trim();
-  const fromProcess = process.env[key];
+  const fromProcess = typeof process !== "undefined" ? process.env[key] : undefined;
   if (typeof fromProcess === "string" && fromProcess.trim()) return fromProcess.trim();
   return fallback;
 }
+
+/** Brand hexes shared by emails / PDF (site uses CSS tokens). */
+export const BRAND = {
+  purple: "#401850",
+  purpleDeep: "#2E1038",
+  orange: "#F4911E",
+  orangeDark: "#D87830",
+  paper: "#FAF7F2",
+  muted: "#78716C",
+  ink: "#1C1917",
+  border: "#E7E0D6",
+} as const;
 
 export const COMPANY = {
   name: "Amplus Construction Solutions",
   legalName: publicEnv("VITE_COMPANY_LEGAL_NAME", "Amplus Construction Solutions Ltd"),
   shortName: "Amplus",
-  tagline: "Build with certainty",
-  phone: publicEnv("VITE_COMPANY_PHONE", "+254 700 000 000"),
-  email: publicEnv("VITE_COMPANY_EMAIL", "hello@amplus.co.ke"),
+  tagline: "BUILDING BETTER TOMORROW, NOW",
+  website: publicEnv("VITE_COMPANY_WEBSITE", "https://www.amplusconstructionsolutions.com"),
+  phone: publicEnv("VITE_COMPANY_PHONE", "+254 723 507 050"),
+  phoneAlt: publicEnv("VITE_COMPANY_PHONE_ALT", "+254 720 849 888"),
+  email: publicEnv("VITE_COMPANY_EMAIL", "dm@amplusconstructionsolutions.com"),
   address: publicEnv("VITE_COMPANY_ADDRESS", "Amplus House, Mombasa Road, Nairobi, Kenya"),
-  postal: publicEnv("VITE_COMPANY_POSTAL", "P.O. Box 37910 – 00100, Nairobi, Kenya"),
+  postal: publicEnv("VITE_COMPANY_POSTAL", "P. O. Box 37910-00100"),
   hours: publicEnv("VITE_COMPANY_HOURS", "Mon – Fri, 8:00 – 17:30 · Sat, 8:00 – 13:00"),
   mapQuery: publicEnv("VITE_COMPANY_MAP_QUERY", "Mombasa Road, Nairobi, Kenya"),
   /** KRA PIN shown on invoices. */
-  pin: publicEnv("VITE_COMPANY_PIN", ""),
+  pin: publicEnv("VITE_COMPANY_PIN", "P052539280U"),
   /** Optional 254… digits. Empty means derive from phone. */
   whatsapp: publicEnv("VITE_COMPANY_WHATSAPP", ""),
-  /** Public Facebook page. */
-  facebook: publicEnv("VITE_COMPANY_FACEBOOK", "https://www.facebook.com/amplusinternational"),
+  /** Public Facebook page (International social; on-site name stays Construction). */
+  facebook: publicEnv("VITE_COMPANY_FACEBOOK", "https://www.facebook.com/share/19XaKKGVF2/"),
 };
+
+/**
+ * Amplus encourages collection from the yard and runs no deliveries for now.
+ * Flip to false to bring back drop points and site pins at checkout.
+ */
+export const COLLECTION_ONLY = true;
+
+/** Google Maps directions to the Amplus yard. */
+export const YARD_DIRECTIONS_URL = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(COMPANY.address)}`;
 
 export const DELIVERY_OPTIONS = [
   { id: "nairobi-standard", label: "Nairobi metro delivery (2 working days)", fee: 1500 },
@@ -35,6 +59,7 @@ export const DELIVERY_OPTIONS = [
 export const BANK_ACCOUNT = {
   accountName: publicEnv("VITE_BANK_ACCOUNT_NAME", "Amplus Construction Solutions Ltd"),
   bankName: publicEnv("VITE_BANK_NAME", "Equity Bank"),
+  branch: publicEnv("VITE_BANK_BRANCH", "Mombasa road"),
   accountNumber: publicEnv("VITE_BANK_ACCOUNT_NUMBER", "1080287515296"),
   paybill: publicEnv("VITE_BANK_PAYBILL", "247247"),
 };
@@ -47,6 +72,21 @@ export function phoneToWhatsAppE164(phone: string): string {
   if (digits.startsWith("254")) return digits;
   if (digits.startsWith("0") && digits.length >= 9) return `254${digits.slice(1)}`;
   return digits;
+}
+
+/** Normalize phone for CRM uniqueness (digits only, Kenya 254…). */
+export function normalizePhoneKey(phone: string): string {
+  let digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("0") && digits.length >= 9) digits = `254${digits.slice(1)}`;
+  else if (digits.length === 9) digits = `254${digits}`;
+  return digits;
+}
+
+export function companyContactStrip(): string {
+  const phones = [COMPANY.phone, COMPANY.phoneAlt].filter(Boolean).join("|");
+  const site = COMPANY.website.replace(/^https?:\/\//, "");
+  return `${site}|${COMPANY.email}|${phones}|${COMPANY.postal}`;
 }
 
 export function supportLinks(input?: {
@@ -63,12 +103,16 @@ export function supportLinks(input?: {
   if (input?.ticketNumber || input?.orderRef) {
     lines.push("Please follow up on this ticket.");
   }
-  const text = lines.join(" ");
-  const whatsappSource = COMPANY.whatsapp || COMPANY.phone;
   return {
     callHref: `tel:${COMPANY.phone.replace(/\s/g, "")}`,
-    whatsappHref: `https://wa.me/${phoneToWhatsAppE164(whatsappSource)}?text=${encodeURIComponent(text)}`,
+    whatsappHref: whatsappLink(lines.join(" ")),
   };
+}
+
+/** wa.me link to the Amplus line with a prefilled message. */
+export function whatsappLink(text: string): string {
+  const whatsappSource = COMPANY.whatsapp || COMPANY.phone;
+  return `https://wa.me/${phoneToWhatsAppE164(whatsappSource)}?text=${encodeURIComponent(text)}`;
 }
 
 const PHONE_SPEC_KEYS = new Set([

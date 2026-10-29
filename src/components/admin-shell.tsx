@@ -5,12 +5,12 @@ import {
   // FileText,
   FileSpreadsheet,
   Folder,
-  Gift,
+  // Gift,
   Home,
   // Layers,
-  LifeBuoy,
+  // LifeBuoy,
   Loader2,
-  Mail,
+  // Mail,
   Menu,
   Package,
   Receipt,
@@ -18,7 +18,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Sparkles,
-  Truck,
+  // Truck,
   Users,
   X,
 } from "lucide-react";
@@ -57,7 +57,8 @@ const NAV_GROUPS: NavGroup[] = [
       { to: "/admin/leads", label: "Leads", icon: Sparkles },
       { to: "/admin/orders", label: "Orders", icon: ShoppingBag },
       { to: "/admin/invoices", label: "Invoices", icon: Receipt },
-      { to: "/admin/delivery", label: "Delivery", icon: Truck },
+      // Checkout delivery config — park while public path is Express interest only:
+      // { to: "/admin/delivery", label: "Delivery", icon: Truck },
     ],
   },
   {
@@ -74,18 +75,20 @@ const NAV_GROUPS: NavGroup[] = [
   },
   {
     id: "people",
-    label: "People & support",
+    label: "People",
     items: [
       { to: "/admin/customers", label: "Customers", icon: Users },
-      { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
-      { to: "/admin/messages", label: "Messages", icon: Mail },
+      // Support inbox — hide until phone-CRM tickets replace account tickets:
+      // { to: "/admin/tickets", label: "Tickets", icon: LifeBuoy },
+      // { to: "/admin/messages", label: "Messages", icon: Mail },
     ],
   },
   {
     id: "system",
     label: "System",
     items: [
-      { to: "/admin/rewards", label: "Rewards", icon: Gift },
+      // Profile loyalty — not wired to phone-first CRM customers:
+      // { to: "/admin/rewards", label: "Rewards", icon: Gift },
       { to: "/admin/roles", label: "Roles", icon: ShieldCheck },
     ],
   },
@@ -115,7 +118,7 @@ function NavLinks({ roles, onNavigate }: { roles: string[]; onNavigate?: () => v
                 to={item.to}
                 activeOptions={{ exact: Boolean(item.exact) }}
                 onClick={onNavigate}
-                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-ink-foreground/10 hover:text-ink-foreground [&.active]:bg-accent [&.active]:text-accent-foreground"
+                className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium text-ink-muted transition-colors hover:bg-ink-foreground/[0.07] hover:text-ink-foreground [&.active]:bg-ink-foreground/[0.12] [&.active]:text-ink-foreground [&.active]:shadow-[inset_3px_0_0_0_var(--color-accent)]"
               >
                 <item.icon className="size-4 shrink-0" />
                 {item.label}

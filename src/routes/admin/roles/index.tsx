@@ -1,9 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState, type FormEvent } from "react";
-import { Loader2, Mail, RefreshCw, ShieldAlert, Trash2 } from "lucide-react";
+import { useMemo, useState, type FormEvent } from "react";
+import { Loader2, Mail, RefreshCw, ShieldAlert, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useAccount } from "@/hooks/use-auth";
-import { assignRole, listStaffRoles, revokeRole } from "@/lib/admin.functions";
+import { assignRole, listStaffRoles, removeStaffMember, revokeRole } from "@/lib/admin.functions";
 import { formatDate } from "@/lib/format";
 import {
   inviteStaff,
@@ -36,6 +47,8 @@ const ROLES = [
 export const Route = createFileRoute("/admin/roles/")({
   component: AdminRolesPage,
 });
+
+type StaffRoleRow = Awaited<ReturnType<typeof listStaffRoles>>[number];
 
 function roleLabel(role: string) {
   return role.replaceAll("_", " ");
@@ -82,6 +95,36 @@ function RolesManager() {
   const [saving, setSaving] = useState(false);
   const [granting, setGranting] = useState(false);
   const [busyInviteId, setBusyInviteId] = useState<string | null>(null);
+  const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const { user } = useAccount();
+
+  // One row per person; role rows for the same user collapse into badges.
+  const staff = useMemo(() => {
+    const byUser = new Map<
+      string,
+      {
+        userId: string;
+        profile: StaffRoleRow["profile"];
+        roles: { id: string; role: string }[];
+        grantedAt: string;
+      }
+    >();
+    for (const row of roles.data ?? []) {
+      const member = byUser.get(row.user_id);
+      if (member) {
+        member.roles.push({ id: row.id, role: row.role });
+        if (row.created_at < member.grantedAt) member.grantedAt = row.created_at;
+      } else {
+        byUser.set(row.user_id, {
+          userId: row.user_id,
+          profile: row.profile,
+          roles: [{ id: row.id, role: row.role }],
+          grantedAt: row.created_at,
+        });
+      }
+    }
+    return [...byUser.values()];
+  }, [roles.data]);
 
   const pendingInvites = (invites.data ?? []).filter(
     (row) => row.status === "pending" || row.status === "expired",
@@ -157,6 +200,20 @@ function RolesManager() {
       queryClient.invalidateQueries({ queryKey: ["admin-staff-roles"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not revoke role.");
+    }
+  }
+
+  async function onRemove(userId: string, name: string) {
+    setRemovingUserId(userId);
+    try {
+      await removeStaffMember({ data: { userId } });
+      toast.success(`${name} removed`);
+      queryClient.invalidateQueries({ queryKey: ["admin-staff-roles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-staff-invites"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not remove staff member.");
+    } finally {
+      setRemovingUserId(null);
     }
   }
 
@@ -348,8 +405,8 @@ function RolesManager() {
         <div>
           <h2 className="text-lg font-semibold">Active staff</h2>
           <p className="mt-0.5 text-sm text-muted-foreground">
-            Everyone with an admin role. Use grant below only for people who already signed up as
-            customers.
+            Everyone with an admin role. Click × on a badge to drop one role; the bin deletes the
+            login from Supabase entirely.
           </p>
         </div>
 
@@ -402,29 +459,84 @@ function RolesManager() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {(roles.data ?? []).map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{row.profile?.full_name || "Unknown"}</p>
-                    <p className="text-xs text-muted-foreground">{row.profile?.email}</p>
-                  </td>
-                  <td className="px-4 py-3">
-                    <Badge variant="secondary">{roleLabel(row.role)}</Badge>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatDate(row.created_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => void onRevoke(row.id)}
-                      aria-label="Revoke role"
-                    >
-                      <Trash2 className="size-4 text-destructive" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-              {!roles.isLoading && (roles.data ?? []).length === 0 ? (
+              {staff.map((member) => {
+                const isSelf = member.userId === user?.id;
+                const name = member.profile?.full_name || member.profile?.email || "Unknown";
+                return (
+                  <tr key={member.userId}>
+                    <td className="px-4 py-3">
+                      <p className="flex items-center gap-2 font-medium">
+                        {member.profile?.full_name || "Unknown"}
+                        {isSelf ? <Badge variant="outline">You</Badge> : null}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{member.profile?.email}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {member.roles.map((r) => (
+                          <Badge key={r.id} variant="secondary" className="gap-1 pr-1">
+                            {roleLabel(r.role)}
+                            {member.roles.length > 1 ? (
+                              <button
+                                type="button"
+                                onClick={() => void onRevoke(r.id)}
+                                className="rounded-sm p-0.5 text-muted-foreground hover:text-destructive"
+                                aria-label={`Revoke ${roleLabel(r.role)}`}
+                              >
+                                <X className="size-3" />
+                              </button>
+                            ) : null}
+                          </Badge>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(member.grantedAt)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {isSelf ? null : (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              disabled={removingUserId === member.userId}
+                              aria-label={`Remove ${name}`}
+                            >
+                              {removingUserId === member.userId ? (
+                                <Loader2 className="size-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="size-4 text-destructive" />
+                              )}
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Remove {name}?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This deletes their login from Supabase along with all their roles
+                                and invites. They are signed out of the portal and can only come
+                                back through a new invite. Invoices and customers they created are
+                                kept.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                onClick={() => void onRemove(member.userId, name)}
+                              >
+                                Delete account
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!roles.isLoading && staff.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-10 text-center text-muted-foreground">
                     No staff roles assigned yet.

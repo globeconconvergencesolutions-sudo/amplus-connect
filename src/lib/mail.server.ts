@@ -1,11 +1,20 @@
 import nodemailer from "nodemailer";
 import { COMPANY } from "@/lib/company";
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer | string;
+  contentType?: string;
+  /** When content is a base64 string, set encoding to "base64". */
+  encoding?: "base64";
+};
+
 export type OutboundMail = {
   to: string | string[];
   subject: string;
   text: string;
   html?: string;
+  attachments?: MailAttachment[];
 };
 
 function gmailConfigured() {
@@ -35,6 +44,16 @@ async function sendViaGmail(mail: OutboundMail) {
     subject: mail.subject,
     text: mail.text,
     ...(mail.html ? { html: mail.html } : {}),
+    ...(mail.attachments?.length
+      ? {
+          attachments: mail.attachments.map((row) => ({
+            filename: row.filename,
+            content: row.content,
+            contentType: row.contentType,
+            encoding: row.encoding,
+          })),
+        }
+      : {}),
   });
 }
 
@@ -45,6 +64,15 @@ async function sendViaResend(mail: OutboundMail) {
     throw new Error("No mail transport is configured.");
   }
   const to = Array.isArray(mail.to) ? mail.to : [mail.to];
+  const attachments = (mail.attachments ?? []).map((row) => {
+    const content =
+      typeof row.content === "string" ? row.content : Buffer.from(row.content).toString("base64");
+    return {
+      filename: row.filename,
+      content,
+      content_type: row.contentType ?? "application/pdf",
+    };
+  });
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -57,6 +85,7 @@ async function sendViaResend(mail: OutboundMail) {
       subject: mail.subject,
       text: mail.text,
       html: mail.html,
+      ...(attachments.length ? { attachments } : {}),
     }),
   });
   if (!response.ok) {
@@ -69,7 +98,9 @@ export function mailConfigured() {
 }
 
 export async function sendMail(mail: OutboundMail): Promise<boolean> {
-  const recipients = (Array.isArray(mail.to) ? mail.to : [mail.to]).map((row) => row.trim()).filter(Boolean);
+  const recipients = (Array.isArray(mail.to) ? mail.to : [mail.to])
+    .map((row) => row.trim())
+    .filter(Boolean);
   if (recipients.length === 0) return false;
   const payload = { ...mail, to: recipients };
   try {

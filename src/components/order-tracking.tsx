@@ -1,6 +1,6 @@
 import { Check } from "lucide-react";
-import { COMPANY, supportLinks } from "@/lib/company";
-import { deliveryLabel, fulfilmentSteps } from "@/lib/fulfilment";
+import { COMPANY, YARD_DIRECTIONS_URL, supportLinks } from "@/lib/company";
+import { deliveryLabel, fulfilmentSteps, isPickupOption } from "@/lib/fulfilment";
 import { formatDeliveryDestination, mapsUrl, parseDeliveryAddress } from "@/lib/delivery";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,13 +23,19 @@ export function OrderTracking({
   const links = supportLinks(orderRef ? { orderRef } : undefined);
   const parsed = parseDeliveryAddress(deliveryAddress);
   const destination = formatDeliveryDestination(deliveryOption, deliveryAddress);
-  const mapHref =
-    parsed?.lat != null && parsed.lng != null ? mapsUrl(parsed.lat, parsed.lng) : null;
+  const pickup = isPickupOption(deliveryOption);
+  const mapHref = pickup
+    ? YARD_DIRECTIONS_URL
+    : parsed?.lat != null && parsed.lng != null
+      ? mapsUrl(parsed.lat, parsed.lng)
+      : null;
 
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-accent">Delivery</p>
+        <p className="text-[0.7rem] font-semibold uppercase tracking-wide text-accent">
+          {pickup ? "Collection" : "Delivery"}
+        </p>
         <p className="mt-1 text-sm font-medium">{destination || deliveryLabel(deliveryOption)}</p>
         {parsed?.km ? (
           <p className="mt-1 text-xs text-muted-foreground">About {parsed.km} km from the yard</p>
@@ -41,7 +47,7 @@ export function OrderTracking({
             target="_blank"
             rel="noreferrer"
           >
-            Open map pin
+            {pickup ? "Get directions to the yard" : "Open map pin"}
           </a>
         ) : null}
         {current ? <p className="mt-1 text-sm text-muted-foreground">{current.detail}</p> : null}

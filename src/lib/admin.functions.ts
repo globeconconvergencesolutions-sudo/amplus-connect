@@ -60,6 +60,19 @@ export const assignRole = createServerFn({ method: "POST" })
     return { userId: profile.id, email: profile.email, fullName: profile.full_name };
   });
 
+type AdminClient = (typeof import("@/integrations/supabase/client.server"))["supabaseAdmin"];
+
+/** Throws if removing `userId`'s super_admin role would leave the portal with none. */
+async function assertNotLastSuperAdmin(admin: AdminClient, userId: string) {
+  const { data, error } = await admin
+    .from("user_roles")
+    .select("user_id")
+    .eq("role", "super_admin");
+  if (error) throw new Error(error.message);
+  const others = (data ?? []).filter((row) => row.user_id !== userId);
+  if (others.length === 0) throw new Error("You can't remove the last super admin.");
+}
+
 /** Revokes a specific role row. Super admin only. */
 export const revokeRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -68,7 +81,63 @@ export const revokeRole = createServerFn({ method: "POST" })
     await requireSuperAdmin(context.supabase, context.userId);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: row, error: rowError } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("id", data.roleId)
+      .maybeSingle();
+    if (rowError) throw new Error(rowError.message);
+    if (!row) return { ok: true };
+    if (row.role === "super_admin") {
+      if (row.user_id === context.userId) {
+        throw new Error("You can't revoke your own super admin role.");
+      }
+      await assertNotLastSuperAdmin(supabaseAdmin, row.user_id);
+    }
+
     const { error } = await supabaseAdmin.from("user_roles").delete().eq("id", data.roleId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/**
+ * Deletes a staff member's login entirely (auth.users). One auth delete is one Postgres
+ * transaction: profiles, user_roles and staff_invites cascade with it, and invoice/customer
+ * `created_by` links fall back to null. Refuses accounts with orders — orders cascade on
+ * auth.users, so deleting the login would erase sales history.
+ */
+export const removeStaffMember = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => z.object({ userId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireSuperAdmin(context.supabase, context.userId);
+    if (data.userId === context.userId) {
+      throw new Error("You can't delete your own account from here.");
+    }
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: roleRows, error: rolesError } = await supabaseAdmin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.userId);
+    if (rolesError) throw new Error(rolesError.message);
+    if (!roleRows?.length) throw new Error("That account is not staff.");
+    if (roleRows.some((row) => row.role === "super_admin")) {
+      await assertNotLastSuperAdmin(supabaseAdmin, data.userId);
+    }
+
+    const { count: orderCount, error: ordersError } = await supabaseAdmin
+      .from("orders")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", data.userId);
+    if (ordersError) throw new Error(ordersError.message);
+    if ((orderCount ?? 0) > 0) {
+      throw new Error(
+        `This account has ${orderCount} order(s); deleting it would erase them. Revoke the roles instead.`,
+      );
+    }
+
+    const { error } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });

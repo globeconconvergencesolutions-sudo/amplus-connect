@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Mail, MapPin, Phone } from "lucide-react";
-import { COMPANY } from "@/lib/company";
+import { COMPANY, YARD_DIRECTIONS_URL } from "@/lib/company";
 import { BrandLogo } from "@/components/brand-logo";
 
 function FacebookIcon({ className }: { className?: string }) {
@@ -19,12 +19,21 @@ export function SiteFooter() {
         <div className="md:col-span-2">
           <BrandLogo variant="footer" inverted />
           <p className="mt-5 max-w-md text-sm text-ink-muted">
-            Construction materials from the Amplus yard — priced online, paid by Equity transfer,
-            delivered to a drop point or your site pin.
+            Building, civil and infrastructure works across Kenya, plus construction materials ready
+            to collect from the Amplus yard on Mombasa Road. Enquire online and we will call you
+            back.
           </p>
           <ul className="mt-6 space-y-2 text-sm text-ink-muted">
             <li className="flex items-center gap-2">
-              <MapPin className="size-4 text-accent" /> {COMPANY.address}
+              <MapPin className="size-4 text-accent" />
+              <a
+                href={YARD_DIRECTIONS_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-accent"
+              >
+                {COMPANY.address}
+              </a>
             </li>
             <li className="flex items-center gap-2">
               <Phone className="size-4 text-accent" />
@@ -102,9 +111,6 @@ export function SiteFooter() {
               </li>
             ) : null}
           </ul>
-          <p className="mt-6 text-xs text-ink-muted">
-            Pay by Equity Bank transfer using your order number.
-          </p>
         </div>
       </div>
       <div className="border-t border-ink-muted/20">

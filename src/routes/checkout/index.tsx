@@ -14,7 +14,12 @@ import { DeliveryMap } from "@/components/delivery-map";
 import { formatKes } from "@/lib/format";
 import { useCart } from "@/lib/cart";
 import { useAccount } from "@/hooks/use-auth";
-import { CHECKOUT_PAYMENT_NOTE } from "@/lib/company";
+import {
+  CHECKOUT_PAYMENT_NOTE,
+  COLLECTION_ONLY,
+  COMPANY,
+  YARD_DIRECTIONS_URL,
+} from "@/lib/company";
 import {
   deliveryDropPointsQuery,
   deliverySettingsQuery,
@@ -286,11 +291,31 @@ function CheckoutPage() {
             </div>
 
             <div className="panel p-5 sm:p-6">
-              <h2 className="text-lg">How should we send this?</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Delivery is priced from the Amplus yard on Mombasa Road to a drop point or a pin you
-                place — not a flat “upcountry” fee.
-              </p>
+              {COLLECTION_ONLY ? (
+                <>
+                  <h2 className="text-lg">Collection from the yard</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Orders are collected free from {COMPANY.address}. We email the customer when it
+                    is ready.{" "}
+                    <a
+                      href={YARD_DIRECTIONS_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-foreground hover:text-accent hover:underline"
+                    >
+                      Directions
+                    </a>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-lg">How should we send this?</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Delivery is priced from the Amplus yard on Mombasa Road to a drop point or a pin
+                    you place — not a flat “upcountry” fee.
+                  </p>
+                </>
+              )}
               <RadioGroup
                 value={mode}
                 onValueChange={(value) => {
@@ -305,13 +330,17 @@ function CheckoutPage() {
                   title="Collect at yard"
                   detail="Free · Mombasa Road"
                 />
-                <ModeCard
-                  id="drop_point"
-                  icon={MapPin}
-                  title="Drop point"
-                  detail="Stage / landmark"
-                />
-                <ModeCard id="site_pin" icon={MapPin} title="Site pin" detail="Map the site" />
+                {COLLECTION_ONLY ? null : (
+                  <>
+                    <ModeCard
+                      id="drop_point"
+                      icon={MapPin}
+                      title="Drop point"
+                      detail="Stage / landmark"
+                    />
+                    <ModeCard id="site_pin" icon={MapPin} title="Site pin" detail="Map the site" />
+                  </>
+                )}
               </RadioGroup>
 
               {mode === "drop_point" ? (
@@ -532,7 +561,9 @@ function CheckoutPage() {
                 <span>{formatKes(subtotal)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Delivery</span>
+                <span className="text-muted-foreground">
+                  {mode === "pickup" ? "Yard collection" : "Delivery"}
+                </span>
                 <span>{deliveryFee > 0 ? formatKes(deliveryFee) : "Free"}</span>
               </div>
               {discount > 0 ? (

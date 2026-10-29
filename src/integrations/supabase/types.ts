@@ -121,9 +121,52 @@ export type Database = {
         };
         Relationships: [];
       };
+      customers: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          email: string | null;
+          full_name: string;
+          id: string;
+          location: string | null;
+          notes: string | null;
+          phone: string;
+          phone_key: string;
+          updated_at: string;
+          user_id: string | null;
+        };
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          email?: string | null;
+          full_name: string;
+          id?: string;
+          location?: string | null;
+          notes?: string | null;
+          phone: string;
+          phone_key: string;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          email?: string | null;
+          full_name?: string;
+          id?: string;
+          location?: string | null;
+          notes?: string | null;
+          phone?: string;
+          phone_key?: string;
+          updated_at?: string;
+          user_id?: string | null;
+        };
+        Relationships: [];
+      };
       interest_leads: {
         Row: {
           created_at: string;
+          customer_id: string | null;
           email: string | null;
           full_name: string;
           id: string;
@@ -142,6 +185,7 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          customer_id?: string | null;
           email?: string | null;
           full_name: string;
           id?: string;
@@ -160,6 +204,7 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          customer_id?: string | null;
           email?: string | null;
           full_name?: string;
           id?: string;
@@ -184,6 +229,13 @@ export type Database = {
             referencedRelation: "products";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "interest_leads_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
         ];
       };
       invoices: {
@@ -193,11 +245,13 @@ export type Database = {
           currency: string;
           customer_address: string | null;
           customer_email: string | null;
+          customer_id: string | null;
           customer_lpo: string | null;
           customer_name: string;
           customer_phone: string | null;
           customer_pin: string | null;
           delivery_meta: string | null;
+          document_kind: string;
           due_date: string | null;
           id: string;
           invoice_number: string;
@@ -205,6 +259,7 @@ export type Database = {
           notes: string | null;
           order_id: string | null;
           payment_terms: string | null;
+          reference_text: string | null;
           remarks: string | null;
           status: string;
           subtotal_kes: number;
@@ -219,11 +274,13 @@ export type Database = {
           currency?: string;
           customer_address?: string | null;
           customer_email?: string | null;
+          customer_id?: string | null;
           customer_lpo?: string | null;
           customer_name: string;
           customer_phone?: string | null;
           customer_pin?: string | null;
           delivery_meta?: string | null;
+          document_kind?: string;
           due_date?: string | null;
           id?: string;
           invoice_number: string;
@@ -231,6 +288,7 @@ export type Database = {
           notes?: string | null;
           order_id?: string | null;
           payment_terms?: string | null;
+          reference_text?: string | null;
           remarks?: string | null;
           status?: string;
           subtotal_kes?: number;
@@ -245,11 +303,13 @@ export type Database = {
           currency?: string;
           customer_address?: string | null;
           customer_email?: string | null;
+          customer_id?: string | null;
           customer_lpo?: string | null;
           customer_name?: string;
           customer_phone?: string | null;
           customer_pin?: string | null;
           delivery_meta?: string | null;
+          document_kind?: string;
           due_date?: string | null;
           id?: string;
           invoice_number?: string;
@@ -257,6 +317,7 @@ export type Database = {
           notes?: string | null;
           order_id?: string | null;
           payment_terms?: string | null;
+          reference_text?: string | null;
           remarks?: string | null;
           status?: string;
           subtotal_kes?: number;
@@ -271,6 +332,13 @@ export type Database = {
             columns: ["order_id"];
             isOneToOne: false;
             referencedRelation: "orders";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "invoices_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
             referencedColumns: ["id"];
           },
         ];
@@ -640,6 +708,7 @@ export type Database = {
           created_at: string;
           customer_email: string | null;
           customer_phone: string | null;
+          customer_id: string | null;
           delivery_address: Json | null;
           delivery_fee_kes: number;
           delivery_option: string | null;
@@ -659,12 +728,13 @@ export type Database = {
           subtotal_kes: number;
           total_kes: number;
           updated_at: string;
-          user_id: string;
+          user_id: string | null;
         };
         Insert: {
           created_at?: string;
           customer_email?: string | null;
           customer_phone?: string | null;
+          customer_id?: string | null;
           delivery_address?: Json | null;
           delivery_fee_kes?: number;
           delivery_option?: string | null;
@@ -684,12 +754,13 @@ export type Database = {
           subtotal_kes?: number;
           total_kes?: number;
           updated_at?: string;
-          user_id: string;
+          user_id?: string | null;
         };
         Update: {
           created_at?: string;
           customer_email?: string | null;
           customer_phone?: string | null;
+          customer_id?: string | null;
           delivery_address?: Json | null;
           delivery_fee_kes?: number;
           delivery_option?: string | null;
@@ -709,9 +780,17 @@ export type Database = {
           subtotal_kes?: number;
           total_kes?: number;
           updated_at?: string;
-          user_id?: string;
+          user_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey";
+            columns: ["customer_id"];
+            isOneToOne: false;
+            referencedRelation: "customers";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       payments: {
         Row: {
@@ -1161,6 +1240,7 @@ export type Database = {
       admin_delete_support_tickets: { Args: { p_ids: string[] }; Returns: number };
       admin_delete_orders: { Args: { p_ids: string[] }; Returns: number };
       admin_delete_customers: { Args: { p_ids: string[]; p_actor: string }; Returns: number };
+      admin_delete_invoices: { Args: { p_ids: string[] }; Returns: number };
       apply_order_stock: { Args: { p_order_id: string }; Returns: undefined };
       reverse_order_stock: { Args: { p_order_id: string }; Returns: undefined };
       cancel_unpaid_order: {

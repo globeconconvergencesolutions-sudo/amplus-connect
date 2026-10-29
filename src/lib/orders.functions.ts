@@ -12,7 +12,9 @@ export const cancelMyUnpaidOrder = createServerFn({ method: "POST" })
       .eq("id", data.orderId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    if (!order || order.user_id !== context.userId) throw new Error("Order not found");
+    if (!order || !order.user_id || order.user_id !== context.userId) {
+      throw new Error("Order not found");
+    }
     if (order.status !== "PENDING_PAYMENT" && order.status !== "PAYMENT_FAILED") {
       throw new Error("Only unpaid orders can be cancelled from your account.");
     }
@@ -72,7 +74,7 @@ export const listAdminOrders = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: orders, error } = await supabaseAdmin
       .from("orders")
-      .select("*, order_items(*)")
+      .select("*, order_items(*), customers(id, full_name, phone, email)")
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
@@ -145,7 +147,10 @@ export const staffAdvanceFulfilment = createServerFn({ method: "POST" })
     if (next.status === "SHIPPED") patch.shipped_at = now;
     if (next.status === "DELIVERED") patch.delivered_at = now;
 
-    let { error: updateError } = await supabaseAdmin.from("orders").update(patch).eq("id", order.id);
+    let { error: updateError } = await supabaseAdmin
+      .from("orders")
+      .update(patch)
+      .eq("id", order.id);
     if (updateError && /prepared_at|shipped_at|delivered_at/i.test(updateError.message)) {
       const fallback = await supabaseAdmin
         .from("orders")
@@ -155,14 +160,27 @@ export const staffAdvanceFulfilment = createServerFn({ method: "POST" })
     }
     if (updateError) throw new Error(updateError.message);
 
-    const [{ data: items }, { data: profile }] = await Promise.all([
-      supabaseAdmin.from("order_items").select("product_name, quantity, line_total_kes").eq("order_id", order.id),
-      supabaseAdmin.from("profiles").select("full_name").eq("id", order.user_id).maybeSingle(),
+    const [{ data: items }, { data: profile }, { data: orderCrm }] = await Promise.all([
+      supabaseAdmin
+        .from("order_items")
+        .select("product_name, quantity, line_total_kes")
+        .eq("order_id", order.id),
+      order.user_id
+        ? supabaseAdmin.from("profiles").select("full_name").eq("id", order.user_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabaseAdmin
+        .from("orders")
+        .select("customer_id, customers(full_name)")
+        .eq("id", order.id)
+        .maybeSingle(),
     ]);
+    const joined = orderCrm?.customers;
+    const crmName =
+      joined && !Array.isArray(joined) ? (joined as { full_name?: string }).full_name : null;
     const { notifyFulfilmentStage } = await import("@/lib/order-mail.server");
     await notifyFulfilmentStage({
       customerEmail: order.customer_email,
-      customerName: profile?.full_name ?? null,
+      customerName: crmName ?? profile?.full_name ?? null,
       merchantReference: order.merchant_reference,
       totalKes: Number(order.total_kes),
       deliveryOption: order.delivery_option,

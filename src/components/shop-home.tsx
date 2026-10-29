@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { MessageCircle, Phone, ShieldCheck, Truck, Wallet } from "lucide-react";
+import { MessageCircle, Phone, ShieldCheck, Wallet, Warehouse } from "lucide-react";
 import { ProductCard } from "@/components/product-card";
 import { ProductMarquee } from "@/components/product-marquee";
 import { Button } from "@/components/ui/button";
@@ -119,10 +119,17 @@ export function ShopHome({
               title="No account needed"
               body="Enquire on any product — we call you back."
             />
+            {/* Delivery parked — Amplus is not running deliveries for now. Restore with the Truck import.
             <TrustTile
               icon={Truck}
               title="Delivery from the yard"
               body="Site pin or drop point — confirmed with the team."
+            />
+            */}
+            <TrustTile
+              icon={Warehouse}
+              title="Collect from the yard"
+              body="Mombasa Road — we confirm a collection time when we call."
             />
             <TrustTile
               icon={Wallet}
@@ -218,7 +225,7 @@ export function ShopHome({
           <div>
             <h2 className="text-xl md:text-2xl">Need a hand before you enquire?</h2>
             <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Talk to the yard about stock, tonnage, or a site delivery — or leave your details on
+              Talk to the yard about stock, tonnage, or a collection time — or leave your details on
               any product page. No account required.
             </p>
           </div>

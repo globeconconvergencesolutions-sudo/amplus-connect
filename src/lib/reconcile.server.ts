@@ -45,7 +45,9 @@ export async function reconcileOrder(
     const confirmationCode = charge.reference ?? payment?.confirmation_code ?? null;
     const displayMethod = charge.channel ?? "paystack";
     const timestampField =
-      source === "ipn" ? { ipn_at: new Date().toISOString() } : { callback_at: new Date().toISOString() };
+      source === "ipn"
+        ? { ipn_at: new Date().toISOString() }
+        : { callback_at: new Date().toISOString() };
 
     if (payment) {
       await supabaseAdmin
@@ -100,7 +102,10 @@ export async function reconcileOrder(
   const providerStatus = (status.payment_status_description ?? "PENDING").toUpperCase();
   const internalStatus = mapStatus(providerStatus);
 
-  const timestampField = source === "ipn" ? { ipn_at: new Date().toISOString() } : { callback_at: new Date().toISOString() };
+  const timestampField =
+    source === "ipn"
+      ? { ipn_at: new Date().toISOString() }
+      : { callback_at: new Date().toISOString() };
 
   if (payment) {
     await supabaseAdmin
@@ -152,7 +157,7 @@ function settledStatus(current: string, next: string): string {
 async function applySettlement(
   order: {
     id: string;
-    user_id: string;
+    user_id: string | null;
     status: string;
     total_kes: number | string;
     points_awarded: boolean | null;
@@ -180,7 +185,7 @@ async function applySettlement(
     if (stockError) console.error("apply_order_stock", stockError);
   }
 
-  if (internalStatus === "PAID" && !order.points_awarded) {
+  if (internalStatus === "PAID" && !order.points_awarded && order.user_id) {
     const { data: settings } = await supabaseAdmin
       .from("loyalty_settings")
       .select("*")
@@ -214,26 +219,38 @@ async function applySettlement(
     }
 
     await supabaseAdmin.from("orders").update({ points_awarded: true }).eq("id", order.id);
+  } else if (internalStatus === "PAID" && !order.points_awarded && !order.user_id) {
+    // CRM-only orders have no loyalty profile — mark awarded to avoid retries.
+    await supabaseAdmin.from("orders").update({ points_awarded: true }).eq("id", order.id);
+  }
 
+  if (internalStatus === "PAID") {
     const { data: items } = await supabaseAdmin
       .from("order_items")
       .select("product_name, quantity, line_total_kes")
       .eq("order_id", order.id);
     const { data: fullOrder } = await supabaseAdmin
       .from("orders")
-      .select("delivery_option, customer_email")
+      .select("delivery_option, customer_email, customer_id, customers(full_name)")
       .eq("id", order.id)
       .maybeSingle();
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name")
-      .eq("id", order.user_id)
-      .maybeSingle();
+    const { data: profile } = order.user_id
+      ? await supabaseAdmin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", order.user_id)
+          .maybeSingle()
+      : { data: null };
+    const crmCustomer = fullOrder?.customers;
+    const crmName =
+      crmCustomer && !Array.isArray(crmCustomer)
+        ? (crmCustomer as { full_name?: string }).full_name
+        : null;
     await notifyOrderPaid({
       merchantReference,
       totalKes: Number(order.total_kes),
       customerEmail: fullOrder?.customer_email ?? order.customer_email,
-      customerName: profile?.full_name ?? null,
+      customerName: crmName ?? profile?.full_name ?? null,
       deliveryOption: fullOrder?.delivery_option ?? null,
       items: (items ?? []).map((item) => ({
         name: item.product_name,

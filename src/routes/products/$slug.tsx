@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { ArrowLeft, Heart, MessageCircle, Phone } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, Phone, Warehouse } from "lucide-react";
 import { toast } from "sonner";
 import { PageShell } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,13 @@ import { productImageUrls } from "@/lib/media";
 import { useAccount } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { wishlistQuery } from "@/lib/account";
-import { COMPANY, companySpecKind, supportLinks, withCompanyContacts } from "@/lib/company";
+import {
+  COMPANY,
+  YARD_DIRECTIONS_URL,
+  companySpecKind,
+  supportLinks,
+  withCompanyContacts,
+} from "@/lib/company";
 
 export const Route = createFileRoute("/products/$slug")({
   component: ProductDetailPage,
@@ -146,6 +152,20 @@ function ProductDetailPage() {
                 {p.stock > 0
                   ? `${p.stock} ${p.unit}(s) in stock`
                   : "Yard count not listed — send interest and the team will confirm"}
+              </p>
+              <p className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+                <Warehouse className="mt-0.5 size-4 shrink-0 text-accent" aria-hidden />
+                <span>
+                  Collect at the Amplus yard, Mombasa Road ·{" "}
+                  <a
+                    href={YARD_DIRECTIONS_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-medium text-foreground underline-offset-4 hover:text-accent hover:underline"
+                  >
+                    Get directions
+                  </a>
+                </span>
               </p>
 
               <div className="mt-5 flex flex-wrap items-center gap-2">

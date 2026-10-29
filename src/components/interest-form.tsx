@@ -1,12 +1,12 @@
 import { useId, useState, type FormEvent } from "react";
-import { CheckCircle2, ChevronDown, Loader2, Phone } from "lucide-react";
+import { CheckCircle2, ChevronDown, Loader2, MapPin, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { submitInterestLead } from "@/lib/interest.functions";
-import { COMPANY, supportLinks } from "@/lib/company";
+import { COMPANY, YARD_DIRECTIONS_URL, supportLinks } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
 type InterestFormProps = {
@@ -118,8 +118,8 @@ export function InterestForm({
             <h2 className="text-xl tracking-tight">Interest received</h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Thanks — an Amplus advisor will reach you on the phone number you shared to confirm{" "}
-              <span className="font-medium text-foreground">{productName}</span>, pricing, and
-              delivery. No account needed.
+              <span className="font-medium text-foreground">{productName}</span>, pricing, and a
+              time to collect from our Mombasa Road yard. No account needed.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <Button variant="outline" size="sm" className="rounded-full" asChild>
@@ -130,6 +130,11 @@ export function InterestForm({
               <Button variant="outline" size="sm" className="rounded-full" asChild>
                 <a href={links.whatsappHref} target="_blank" rel="noreferrer">
                   WhatsApp us
+                </a>
+              </Button>
+              <Button variant="outline" size="sm" className="rounded-full" asChild>
+                <a href={YARD_DIRECTIONS_URL} target="_blank" rel="noreferrer">
+                  <MapPin className="size-3.5" /> Directions to the yard
                 </a>
               </Button>
               <Button
@@ -162,7 +167,8 @@ export function InterestForm({
       </p>
       <h2 className="mt-2 text-xl tracking-tight">Express interest</h2>
       <p className="mt-1.5 text-sm text-muted-foreground">
-        Leave your details — we will call you about {productName} to confirm stock and delivery.
+        Leave your details — we will call you about {productName} to confirm stock, pricing, and
+        collection from the yard.
       </p>
       <p className="mt-2 text-sm text-muted-foreground">
         Or reach the yard directly on{" "}
@@ -318,7 +324,7 @@ export function InterestForm({
                 id={`${formId}-notes`}
                 name="notes"
                 rows={3}
-                placeholder="Delivery timing, site access, brand preference…"
+                placeholder="Quantities, when you would like to collect, brand preference…"
                 className="mt-1.5 resize-y"
                 disabled={submitting}
               />

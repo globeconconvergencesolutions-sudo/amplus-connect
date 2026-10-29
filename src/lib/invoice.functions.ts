@@ -38,6 +38,9 @@ const invoiceBodySchema = z.object({
   customerPin: z.preprocess(emptyToNull, z.string().trim().max(40).nullable()),
   customerAddress: z.preprocess(emptyToNull, z.string().trim().max(500).nullable()),
   customerLpo: z.preprocess(emptyToNull, z.string().trim().max(80).nullable()),
+  customerId: z.string().uuid().nullable().optional(),
+  documentKind: z.enum(["invoice", "proforma"]).default("invoice"),
+  referenceText: z.preprocess(emptyToNull, z.string().trim().max(120).nullable()),
   issueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   dueDate: z.preprocess(
     emptyToNull,
@@ -46,7 +49,7 @@ const invoiceBodySchema = z.object({
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .nullable(),
   ),
-  taxRatePercent: z.number().min(0).max(100).default(0),
+  taxRatePercent: z.number().min(0).max(100).default(16),
   notes: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable()),
   remarks: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable()),
   deliveryMeta: z.preprocess(emptyToNull, z.string().trim().max(2000).nullable()),
@@ -106,6 +109,8 @@ function mapInvoicePdf(
   invoice: {
     invoice_number: string;
     status: string;
+    document_kind?: string | null;
+    reference_text?: string | null;
     issue_date: string;
     due_date: string | null;
     customer_name: string;
@@ -131,9 +136,12 @@ function mapInvoicePdf(
     line_total_kes: number;
   }[],
 ) {
+  const kind = invoice.document_kind === "proforma" ? "proforma" : "invoice";
   return {
     invoiceNumber: invoice.invoice_number,
     status: invoice.status,
+    documentKind: kind as "invoice" | "proforma",
+    referenceText: invoice.reference_text ?? null,
     issueDate: invoice.issue_date,
     dueDate: invoice.due_date,
     customerName: invoice.customer_name,
@@ -171,6 +179,8 @@ async function insertInvoice(admin: any, userId: string, data: z.infer<typeof in
     .insert({
       invoice_number: invoiceNumber,
       status,
+      document_kind: data.documentKind,
+      reference_text: data.referenceText,
       issue_date: data.issueDate,
       due_date: data.dueDate,
       customer_name: data.customerName,
@@ -179,6 +189,7 @@ async function insertInvoice(admin: any, userId: string, data: z.infer<typeof in
       customer_pin: data.customerPin,
       customer_address: data.customerAddress,
       customer_lpo: data.customerLpo,
+      customer_id: data.customerId ?? null,
       order_id: data.orderId ?? null,
       subtotal_kes: subtotal,
       tax_rate_percent: data.taxRatePercent,
@@ -187,7 +198,7 @@ async function insertInvoice(admin: any, userId: string, data: z.infer<typeof in
       notes: data.notes,
       remarks: data.remarks,
       delivery_meta: data.deliveryMeta,
-      payment_terms: data.paymentTerms ?? "Advance payment / as agreed",
+      payment_terms: data.paymentTerms ?? "Full payment to be done with order",
       created_by: userId,
     })
     .select("*")
@@ -220,7 +231,7 @@ export const listInvoices = createServerFn({ method: "GET" })
     const { data, error } = await supabaseAdmin
       .from("invoices")
       .select(
-        "id, invoice_number, status, issue_date, due_date, customer_name, customer_phone, customer_email, total_kes, tax_kes, subtotal_kes, order_id, created_at",
+        "id, invoice_number, status, document_kind, reference_text, customer_id, issue_date, due_date, customer_name, customer_phone, customer_email, total_kes, tax_kes, subtotal_kes, order_id, created_at",
       )
       .order("created_at", { ascending: false })
       .limit(200);
@@ -318,11 +329,105 @@ export const downloadInvoicePdf = createServerFn({ method: "POST" })
       .order("sort_order", { ascending: true });
     if (itemsError) throw new Error(itemsError.message);
 
-    const buffer = await buildInvoicePdf(mapInvoicePdf(invoice, items ?? []));
+    const mapped = mapInvoicePdf(invoice, items ?? []);
+    const buffer = await buildInvoicePdf(mapped);
     return {
-      filename: invoicePdfFilename(invoice.invoice_number),
+      filename: invoicePdfFilename(invoice.invoice_number, mapped.documentKind),
       mimeType: "application/pdf",
       base64: buffer.toString("base64"),
+    };
+  });
+
+/**
+ * Emails the PDF when the invoice has an email; otherwise returns a WhatsApp share link
+ * so staff can send the downloaded PDF that way.
+ */
+export const deliverInvoice = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) =>
+    z
+      .object({
+        invoiceId: z.string().uuid(),
+        /** When true and email exists, send mail. Always returns share hints. */
+        sendEmail: z.boolean().optional().default(true),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireStaff(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: invoice, error } = await supabaseAdmin
+      .from("invoices")
+      .select("*")
+      .eq("id", data.invoiceId)
+      .maybeSingle();
+    const missing = missingInvoicesError(error);
+    if (missing) throw new Error(missing);
+    if (error) throw new Error(error.message);
+    if (!invoice) throw new Error("Invoice not found.");
+
+    const { data: items, error: itemsError } = await supabaseAdmin
+      .from("invoice_items")
+      .select("*")
+      .eq("invoice_id", invoice.id)
+      .order("sort_order", { ascending: true });
+    if (itemsError) throw new Error(itemsError.message);
+
+    const mapped = mapInvoicePdf(invoice, items ?? []);
+    const buffer = await buildInvoicePdf(mapped);
+    const filename = invoicePdfFilename(invoice.invoice_number, mapped.documentKind);
+    const base64 = buffer.toString("base64");
+
+    const { invoiceWhatsAppShareHref, sendInvoicePdfEmail } =
+      await import("@/lib/invoice-mail.server");
+    const whatsappHref = invoiceWhatsAppShareHref({
+      customerPhone: mapped.customerPhone,
+      invoiceNumber: mapped.invoiceNumber,
+      documentKind: mapped.documentKind,
+      totalKes: mapped.totalKes,
+    });
+
+    const hasEmail = Boolean(mapped.customerEmail?.trim());
+    let emailSent = false;
+    let emailReason: "no_email" | "mail_not_configured" | "send_failed" | undefined;
+
+    if (data.sendEmail && hasEmail) {
+      const result = await sendInvoicePdfEmail({
+        invoiceNumber: mapped.invoiceNumber,
+        documentKind: mapped.documentKind,
+        customerName: mapped.customerName,
+        customerEmail: mapped.customerEmail,
+        customerPhone: mapped.customerPhone,
+        issueDate: mapped.issueDate,
+        totalKes: mapped.totalKes,
+        filename,
+        pdfBase64: base64,
+      });
+      emailSent = result.sent;
+      emailReason = result.reason;
+      if (!result.sent && result.reason === "mail_not_configured") {
+        throw new Error(
+          "Email is not configured. Add GMAIL_USER + GMAIL_APP_PASSWORD (or Resend) to send invoice PDFs.",
+        );
+      }
+      if (!result.sent && result.reason === "send_failed") {
+        throw new Error("Could not send the invoice email. Try downloading the PDF instead.");
+      }
+    } else if (!hasEmail) {
+      emailReason = "no_email";
+    }
+
+    return {
+      filename,
+      mimeType: "application/pdf",
+      base64,
+      hasEmail,
+      emailSent,
+      emailReason,
+      customerEmail: mapped.customerEmail,
+      customerPhone: mapped.customerPhone,
+      whatsappHref,
+      invoiceNumber: mapped.invoiceNumber,
     };
   });
 
@@ -332,7 +437,7 @@ export const createInvoiceFromOrder = createServerFn({ method: "POST" })
     z
       .object({
         orderId: z.string().uuid(),
-        taxRatePercent: z.number().min(0).max(100).optional().default(0),
+        taxRatePercent: z.number().min(0).max(100).optional().default(16),
         issueNow: z.boolean().optional().default(true),
       })
       .parse(data),
@@ -344,23 +449,37 @@ export const createInvoiceFromOrder = createServerFn({ method: "POST" })
     const { data: order, error } = await supabaseAdmin
       .from("orders")
       .select(
-        "id, merchant_reference, customer_email, customer_phone, delivery_address, user_id, order_items(product_id, product_name, quantity, unit_price_kes)",
+        "id, merchant_reference, customer_email, customer_phone, customer_id, delivery_address, user_id, customers(full_name, email, phone, location), order_items(product_id, product_name, quantity, unit_price_kes)",
       )
       .eq("id", data.orderId)
       .maybeSingle();
     if (error) throw new Error(error.message);
     if (!order) throw new Error("Order not found.");
 
-    let customerName = order.customer_email?.split("@")[0] || "Customer";
-    const { data: profile } = await supabaseAdmin
-      .from("profiles")
-      .select("full_name, email")
-      .eq("id", order.user_id)
-      .maybeSingle();
-    if (profile?.full_name) customerName = profile.full_name;
+    const crm =
+      order.customers && !Array.isArray(order.customers)
+        ? (order.customers as {
+            full_name: string;
+            email: string | null;
+            phone: string;
+            location: string | null;
+          })
+        : null;
 
-    let addressText: string | null = null;
-    if (order.delivery_address && typeof order.delivery_address === "object") {
+    let customerName = crm?.full_name || order.customer_email?.split("@")[0] || "Customer";
+    let profileEmail: string | null = null;
+    if (!crm && order.user_id) {
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", order.user_id)
+        .maybeSingle();
+      if (profile?.full_name) customerName = profile.full_name;
+      profileEmail = profile?.email ?? null;
+    }
+
+    let addressText: string | null = crm?.location ?? null;
+    if (!addressText && order.delivery_address && typeof order.delivery_address === "object") {
       const a = order.delivery_address as Record<string, unknown>;
       addressText = [a["street"], a["town"], a["county"], a["notes"]]
         .filter((v) => typeof v === "string" && v.trim())
@@ -378,11 +497,14 @@ export const createInvoiceFromOrder = createServerFn({ method: "POST" })
 
     return insertInvoice(supabaseAdmin, context.userId, {
       customerName,
-      customerEmail: order.customer_email || profile?.email || null,
-      customerPhone: order.customer_phone || null,
+      customerEmail: crm?.email || order.customer_email || profileEmail,
+      customerPhone: crm?.phone || order.customer_phone || null,
       customerPin: null,
       customerAddress: addressText,
       customerLpo: order.merchant_reference,
+      customerId: order.customer_id ?? null,
+      documentKind: "invoice",
+      referenceText: order.merchant_reference,
       issueDate: new Date().toISOString().slice(0, 10),
       dueDate: null,
       taxRatePercent: data.taxRatePercent,

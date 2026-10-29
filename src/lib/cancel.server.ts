@@ -114,7 +114,7 @@ async function cancelInApp(orderId: string, allowProcessing: boolean): Promise<C
   await supabaseAdmin.rpc("reverse_order_stock", { p_order_id: orderId });
 
   let pointsRestored = 0;
-  if (order.points_redeemed > 0) {
+  if (order.points_redeemed > 0 && order.user_id) {
     const { data: existing } = await supabaseAdmin
       .from("loyalty_transactions")
       .select("id")
@@ -238,7 +238,9 @@ export async function sendDueAbandonedReminders(origin: string) {
 
     const [{ data: items }, { data: profile }] = await Promise.all([
       supabaseAdmin.from("order_items").select("product_name, quantity").eq("order_id", order.id),
-      supabaseAdmin.from("profiles").select("full_name").eq("id", order.user_id).maybeSingle(),
+      order.user_id
+        ? supabaseAdmin.from("profiles").select("full_name").eq("id", order.user_id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ]);
 
     const ok = await notifyAbandonedOrder({
@@ -247,7 +249,6 @@ export async function sendDueAbandonedReminders(origin: string) {
       merchantReference: order.merchant_reference,
       totalKes: Number(order.total_kes),
       items: (items ?? []).map((item) => ({ name: item.product_name, quantity: item.quantity })),
-      payUrl: `${origin.replace(/\/$/, "")}/account?tab=orders`,
     });
     if (!ok) {
       await supabaseAdmin.from("orders").update({ reminder_sent_at: null }).eq("id", order.id);

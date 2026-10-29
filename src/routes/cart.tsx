@@ -3,6 +3,7 @@ import { ArrowRight, Minus, Package, Plus, ShoppingCart, Trash2 } from "lucide-r
 import { PageShell, PageHeader } from "@/components/page-shell";
 import { Button } from "@/components/ui/button";
 import { formatKes } from "@/lib/format";
+import { COLLECTION_ONLY } from "@/lib/company";
 import { StaffGate } from "@/components/staff-gate";
 import { useCart } from "@/lib/cart";
 import { useAccount } from "@/hooks/use-auth";
@@ -139,7 +140,9 @@ function CartPage() {
                 <span className="font-semibold">{formatKes(subtotal)}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
-                Delivery fee is calculated at checkout.
+                {COLLECTION_ONLY
+                  ? "Free collection from the Amplus yard, Mombasa Road."
+                  : "Delivery fee is calculated at checkout."}
               </p>
 
               {!loading && !user ? (

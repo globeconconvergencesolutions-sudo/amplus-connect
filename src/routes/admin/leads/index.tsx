@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { ExternalLink, Mail, Phone, Sparkles } from "lucide-react";
+import { ExternalLink, Link2, Mail, Phone, Sparkles, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
 import {
@@ -16,12 +16,17 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { deleteInterestLeads } from "@/lib/admin-delete.functions";
+import {
+  convertLeadToCustomer,
+  linkLeadToCustomer,
+  searchCustomers,
+} from "@/lib/customers.functions";
 import { formatDate, formatKes } from "@/lib/format";
 import { isMissingRelation } from "@/lib/supabase-errors";
 import { customerWhatsAppHref } from "@/lib/company";
 import { cn } from "@/lib/utils";
 
-type LeadStatus = "new" | "contacted" | "closed";
+type LeadStatus = "new" | "contacted" | "closed" | "converted";
 
 type LeadRow = {
   id: string;
@@ -38,16 +43,25 @@ type LeadRow = {
   notes: string | null;
   status: LeadStatus;
   staff_note: string | null;
+  customer_id: string | null;
   created_at: string;
+  customers?: { id: string; full_name: string; phone: string } | null;
 };
 
 const STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New",
   contacted: "Contacted",
   closed: "Closed",
+  converted: "Converted",
 };
 
-const STATUS_FILTERS: Array<LeadStatus | "all"> = ["all", "new", "contacted", "closed"];
+const STATUS_FILTERS: Array<LeadStatus | "all"> = [
+  "all",
+  "new",
+  "contacted",
+  "closed",
+  "converted",
+];
 
 export const Route = createFileRoute("/admin/leads/")({
   component: AdminLeadsPage,
@@ -60,7 +74,7 @@ function useLeads() {
       const { data, error } = await supabase
         .from("interest_leads")
         .select(
-          "id, product_id, product_name, product_slug, product_unit, unit_price_kes, full_name, phone, location, email, quantity, notes, status, staff_note, created_at",
+          "id, product_id, product_name, product_slug, product_unit, unit_price_kes, full_name, phone, location, email, quantity, notes, status, staff_note, customer_id, created_at, customers(id, full_name, phone)",
         )
         .order("created_at", { ascending: false });
       if (isMissingRelation(error)) {
@@ -131,6 +145,10 @@ function AdminLeadsPage() {
   }
 
   async function setStatus(lead: LeadRow, status: LeadStatus) {
+    if (status === "converted" && !lead.customer_id) {
+      toast.error("Convert or link this lead to a customer first.");
+      return;
+    }
     setSavingId(lead.id);
     const { error } = await supabase.from("interest_leads").update({ status }).eq("id", lead.id);
     setSavingId(null);
@@ -141,6 +159,24 @@ function AdminLeadsPage() {
     toast.success(`Marked as ${STATUS_LABEL[status].toLowerCase()}`);
     queryClient.invalidateQueries({ queryKey: ["admin-interest-leads"] });
     queryClient.invalidateQueries({ queryKey: ["admin-count", "interest_leads"] });
+  }
+
+  async function onConvert(lead: LeadRow) {
+    setSavingId(lead.id);
+    try {
+      const result = await convertLeadToCustomer({ data: { leadId: lead.id } });
+      toast.success(
+        result.created
+          ? "Customer created and lead linked."
+          : "Lead linked to an existing customer with the same phone.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin-interest-leads"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-crm-customers"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not convert lead.");
+    } finally {
+      setSavingId(null);
+    }
   }
 
   async function saveStaffNote(lead: LeadRow) {
@@ -375,6 +411,19 @@ function AdminLeadsPage() {
                     />
                   </div>
 
+                  {lead.customer_id || lead.customers ? (
+                    <p className="mt-4 text-sm">
+                      Linked customer:{" "}
+                      <Link
+                        to="/admin/customers"
+                        className="font-medium text-accent hover:underline"
+                      >
+                        {lead.customers?.full_name ?? "View in Customers"}
+                        {lead.customers?.phone ? ` · ${lead.customers.phone}` : ""}
+                      </Link>
+                    </p>
+                  ) : null}
+
                   <div className="mt-4 flex flex-wrap gap-2">
                     <Button variant="outline" size="sm" asChild>
                       <a href={`tel:${tel}`}>
@@ -405,6 +454,28 @@ function AdminLeadsPage() {
                     >
                       Save note
                     </Button>
+                    {!lead.customer_id ? (
+                      <>
+                        <Button
+                          variant="accent"
+                          size="sm"
+                          disabled={savingId === lead.id}
+                          onClick={() => void onConvert(lead)}
+                        >
+                          <UserPlus className="size-3.5" />
+                          Convert to customer
+                        </Button>
+                        <LeadLinkExisting
+                          leadId={lead.id}
+                          busy={savingId === lead.id}
+                          onBusy={(busy) => setSavingId(busy ? lead.id : null)}
+                          onDone={() => {
+                            queryClient.invalidateQueries({ queryKey: ["admin-interest-leads"] });
+                            queryClient.invalidateQueries({ queryKey: ["admin-crm-customers"] });
+                          }}
+                        />
+                      </>
+                    ) : null}
                     <AdminDeleteButton
                       label={`Delete lead from ${lead.full_name}?`}
                       warning="This interest lead will be permanently removed."
@@ -414,7 +485,7 @@ function AdminLeadsPage() {
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 border-t border-border/60 pt-3">
-                    {(["new", "contacted", "closed"] as LeadStatus[]).map((status) => (
+                    {(["new", "contacted", "closed", "converted"] as LeadStatus[]).map((status) => (
                       <Button
                         key={status}
                         type="button"
@@ -446,5 +517,84 @@ function AdminLeadsPage() {
         ) : null}
       </div>
     </AdminShell>
+  );
+}
+
+function LeadLinkExisting({
+  leadId,
+  busy,
+  onBusy,
+  onDone,
+}: {
+  leadId: string;
+  busy: boolean;
+  onBusy: (busy: boolean) => void;
+  onDone: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const results = useQuery({
+    queryKey: ["admin-customer-search", q],
+    enabled: open && q.trim().length >= 2,
+    queryFn: () => searchCustomers({ data: { query: q.trim() } }),
+  });
+
+  async function link(customerId: string) {
+    onBusy(true);
+    try {
+      await linkLeadToCustomer({ data: { leadId, customerId } });
+      toast.success("Lead linked to customer");
+      setOpen(false);
+      onDone();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not link lead.");
+    } finally {
+      onBusy(false);
+    }
+  }
+
+  return (
+    <div className="inline-flex flex-col gap-2">
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={busy}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <Link2 className="size-3.5" />
+        {open ? "Cancel link" : "Link existing"}
+      </Button>
+      {open ? (
+        <div className="w-full min-w-[16rem] rounded-lg border border-border bg-background p-3 sm:w-80">
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search customers…"
+            autoFocus
+          />
+          <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-sm">
+            {(results.data ?? []).map((row) => (
+              <li key={row.id}>
+                <button
+                  type="button"
+                  className="flex w-full flex-col rounded-md px-2 py-1.5 text-left hover:bg-secondary"
+                  onClick={() => void link(row.id)}
+                >
+                  <span className="font-medium">{row.full_name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {row.phone}
+                    {row.email ? ` · ${row.email}` : ""}
+                  </span>
+                </button>
+              </li>
+            ))}
+            {q.trim().length >= 2 && !results.isLoading && (results.data ?? []).length === 0 ? (
+              <li className="px-2 py-2 text-muted-foreground">No matches.</li>
+            ) : null}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
 }

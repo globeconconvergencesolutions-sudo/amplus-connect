@@ -23,7 +23,10 @@
     "apply:interest-leads": "node --env-file=.env scripts/apply-interest-leads.mjs",
     "apply:invoices": "node --env-file=.env scripts/apply-invoices.mjs",
     "apply:admin-deletes": "node --env-file=.env scripts/apply-admin-deletes.mjs",
-    "apply:staff-invites": "node --env-file=.env scripts/apply-staff-invites.mjs"
+    "apply:staff-invites": "node --env-file=.env scripts/apply-staff-invites.mjs",
+    "apply:crm-customers": "node --env-file=.env scripts/apply-crm-customers.mjs",
+    "apply:crm-order-customers": "node --env-file=.env scripts/apply-crm-order-customers.mjs",
+    "apply:admin-delete-invoices": "node --env-file=.env scripts/apply-admin-delete-invoices.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"

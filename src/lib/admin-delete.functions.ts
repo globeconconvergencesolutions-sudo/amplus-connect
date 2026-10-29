@@ -107,3 +107,25 @@ export const deleteCustomers = createServerFn({ method: "POST" })
     });
     return { deleted };
   });
+
+export const deleteInvoices = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => idsSchema.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireStaff(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    try {
+      const deleted = await runDeleteRpc(supabaseAdmin, "admin_delete_invoices", {
+        p_ids: data.ids,
+      });
+      return { deleted };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (/admin_delete_invoices|Could not find the function|PGRST202/i.test(message)) {
+        throw new Error(
+          "Invoice delete is not installed. Run supabase/migrations/20261029120000_admin_delete_invoices.sql (or npm run apply:admin-delete-invoices).",
+        );
+      }
+      throw error instanceof Error ? error : new Error(message);
+    }
+  });

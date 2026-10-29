@@ -27,7 +27,7 @@ export const Route = createFileRoute("/admin/")({
 });
 
 function useCount(
-  table: "products" | "orders" | "profiles" | "contact_messages" | "interest_leads",
+  table: "products" | "orders" | "customers" | "contact_messages" | "interest_leads",
   filter?: [string, string],
 ) {
   return useQuery({
@@ -105,7 +105,8 @@ function AdminDashboard() {
   const orderCount = useCount("orders");
   const pendingCount = useCount("orders", ["status", "PENDING_PAYMENT"]);
   const awaitingCount = useCount("orders", ["status", "PAYMENT_PROCESSING"]);
-  const customerCount = useCount("profiles");
+  // CRM contacts only — `profiles` holds every auth login, staff included.
+  const customerCount = useCount("customers");
   const unhandledMessages = useCount("contact_messages", ["handled", "false"]);
   const newLeads = useCount("interest_leads", ["status", "new"]);
   const openTickets = useQuery({

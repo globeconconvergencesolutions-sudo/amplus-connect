@@ -1,5 +1,8 @@
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import PDFDocument from "pdfkit";
-import { BANK_ACCOUNT, COMPANY } from "@/lib/company";
+import { BANK_ACCOUNT, BRAND, COMPANY, companyContactStrip } from "@/lib/company";
 
 export type InvoicePdfItem = {
   description: string;
@@ -12,6 +15,8 @@ export type InvoicePdfItem = {
 export type InvoicePdfInput = {
   invoiceNumber: string;
   status: string;
+  documentKind: "invoice" | "proforma";
+  referenceText: string | null;
   issueDate: string;
   dueDate: string | null;
   customerName: string;
@@ -31,8 +36,14 @@ export type InvoicePdfInput = {
   items: InvoicePdfItem[];
 };
 
+/** Intrinsic size of src/assets/brand/amplus-construction-logo.png */
+const LOGO_INTRINSIC = { w: 642, h: 284 };
+
 function money(value: number) {
-  return `KES ${Math.round(Number(value) || 0).toLocaleString("en-KE")}`;
+  return Math.round(Number(value) || 0).toLocaleString("en-KE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
 function qty(value: number) {
@@ -40,10 +51,26 @@ function qty(value: number) {
   return Number.isInteger(n) ? String(n) : n.toLocaleString("en-KE", { maximumFractionDigits: 3 });
 }
 
-function formatDisplayDate(isoDate: string) {
+function formatLongDate(isoDate: string) {
   const d = new Date(`${isoDate}T12:00:00`);
   if (Number.isNaN(d.getTime())) return isoDate;
-  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const day = d.getDate();
+  const suffix =
+    day % 10 === 1 && day !== 11
+      ? "st"
+      : day % 10 === 2 && day !== 12
+        ? "nd"
+        : day % 10 === 3 && day !== 13
+          ? "rd"
+          : "th";
+  const month = d.toLocaleDateString("en-GB", { month: "long" });
+  return `${day}${suffix} ${month} ${d.getFullYear()}`;
+}
+
+function formatShortDate(isoDate: string) {
+  const d = new Date(`${isoDate}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return d.toLocaleDateString("en-GB");
 }
 
 function collectBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
@@ -55,15 +82,33 @@ function collectBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
   });
 }
 
-/** A4 Kenyan-style sales invoice PDF — Amplus branded, inspired by NCCL layout. */
+function resolveLogoPath() {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    return join(here, "../assets/brand/amplus-construction-logo.png");
+  } catch {
+    const require = createRequire(import.meta.url);
+    return join(process.cwd(), "src/assets/brand/amplus-construction-logo.png");
+  }
+}
+
+export function invoicePdfFilename(invoiceNumber: string, kind: string) {
+  const prefix = kind === "proforma" ? "Amplus-Proforma" : "Amplus-Invoice";
+  return `${prefix}-${invoiceNumber}.pdf`;
+}
+
+/**
+ * A4 sales invoice matching live Amplus Construction templates (Firmbridge / 428).
+ * Contact strip stays at the TOP (same as sample PDFs), then logo → KRA PIN → title.
+ */
 export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Buffer> {
   const doc = new PDFDocument({
     size: "A4",
-    margins: { top: 42, bottom: 48, left: 42, right: 42 },
+    margins: { top: 28, bottom: 48, left: 42, right: 42 },
     info: {
-      Title: `Invoice ${input.invoiceNumber}`,
+      Title: `${input.documentKind === "proforma" ? "Proforma" : "Invoice"} ${input.invoiceNumber}`,
       Author: COMPANY.legalName,
-      Subject: `Sales invoice for ${input.customerName}`,
+      Subject: `Sales document for ${input.customerName}`,
       Creator: COMPANY.name,
     },
   });
@@ -73,241 +118,245 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Buffer> {
   const left = doc.page.margins.left;
   const right = pageWidth - doc.page.margins.right;
   const contentWidth = right - left;
+  const purple = BRAND.purple;
+  const orange = BRAND.orange;
+  const muted = BRAND.muted;
+  const ink = BRAND.ink;
+  const pageBottom = doc.page.height - doc.page.margins.bottom;
 
-  // Header bar
-  doc.rect(0, 0, pageWidth, 78).fill("#1C1917");
-  doc.fillColor("#E8B089").font("Helvetica-Bold").fontSize(11);
-  doc.text("AMPLUS CONSTRUCTION SOLUTIONS", left, 22, { characterSpacing: 1.2 });
-  doc.fillColor("#FAF6F1").font("Helvetica-Bold").fontSize(22);
-  doc.text("INVOICE", left, 40);
-  doc.fillColor("#A8A29E").font("Helvetica").fontSize(9);
-  doc.text(COMPANY.tagline, left, 64);
+  function ensureSpace(needed: number) {
+    if (y + needed <= pageBottom) return;
+    doc.addPage();
+    y = doc.page.margins.top;
+  }
 
-  doc.fillColor("#FAF6F1").font("Helvetica-Bold").fontSize(10);
-  doc.text(input.invoiceNumber, left, 28, { width: contentWidth, align: "right" });
-  doc.fillColor("#A8A29E").font("Helvetica").fontSize(9);
-  doc.text(`Date ${formatDisplayDate(input.issueDate)}`, left, 44, {
+  // Top contact strip — Firmbridge / 428 layout (not footer)
+  doc.fillColor(purple).font("Helvetica").fontSize(7.5);
+  doc.text(companyContactStrip(), left, doc.page.margins.top, {
     width: contentWidth,
+    align: "center",
+    lineGap: 1,
+  });
+  let y = doc.y + 10;
+
+  // Logo (advance by real rendered height so KRA PIN never overlaps the tagline)
+  try {
+    const logoPath = resolveLogoPath();
+    const logoW = 200;
+    const logoH = logoW * (LOGO_INTRINSIC.h / LOGO_INTRINSIC.w);
+    const logoX = left + (contentWidth - logoW) / 2;
+    doc.image(logoPath, logoX, y, { width: logoW, height: logoH });
+    y += logoH + 14;
+  } catch {
+    doc.fillColor(purple).font("Helvetica-Bold").fontSize(22);
+    doc.text("AMPLUS", left, y, { width: contentWidth, align: "center" });
+    y = doc.y + 4;
+    doc.fillColor(muted).font("Helvetica").fontSize(10);
+    doc.text(COMPANY.legalName, left, y, { width: contentWidth, align: "center" });
+    y = doc.y + 2;
+    doc.fillColor(orange).font("Helvetica-Bold").fontSize(8);
+    doc.text(COMPANY.tagline, left, y, { width: contentWidth, align: "center" });
+    y = doc.y + 12;
+  }
+
+  if (COMPANY.pin) {
+    doc.fillColor(purple).font("Helvetica-Bold").fontSize(10);
+    doc.text(`KRA PIN: ${COMPANY.pin}`, left, y, { width: contentWidth, align: "center" });
+    y = doc.y + 12;
+  }
+
+  const title = input.documentKind === "proforma" ? "PROFORMA INVOICE" : "INVOICE";
+  doc.fillColor(purple).font("Helvetica-Bold").fontSize(16);
+  doc.text(title, left, y, { width: contentWidth, align: "center" });
+  y = doc.y + 16;
+
+  // Meta — track real heights so wrapped ADDRESS doesn't collide with invoice no.
+  const metaStartY = y;
+  const leftW = contentWidth * 0.58;
+  const rightX = left + contentWidth * 0.55;
+  const rightW = contentWidth * 0.45;
+
+  doc.fillColor(ink).font("Helvetica").fontSize(10);
+  const metaLeft = [`DATE: ${formatLongDate(input.issueDate)}`, `CLIENT: ${input.customerName}`];
+  if (input.customerPhone) metaLeft.push(`PHONE: ${input.customerPhone}`);
+  if (input.customerEmail) metaLeft.push(`EMAIL: ${input.customerEmail}`);
+  if (input.customerAddress) metaLeft.push(`ADDRESS: ${input.customerAddress}`);
+  if (input.customerPin) metaLeft.push(`CLIENT PIN: ${input.customerPin}`);
+  if (input.customerLpo) metaLeft.push(`LPO: ${input.customerLpo}`);
+
+  let leftY = metaStartY;
+  for (const line of metaLeft) {
+    doc.text(line, left, leftY, { width: leftW });
+    leftY = doc.y + 4;
+  }
+
+  let rightY = metaStartY;
+  doc.font("Helvetica-Bold");
+  const numberLabel = input.documentKind === "proforma" ? "QUOTE NO" : "INVOICE NO";
+  doc.text(`${numberLabel}: ${input.invoiceNumber}`, rightX, rightY, {
+    width: rightW,
     align: "right",
   });
-  if (input.dueDate) {
-    doc.text(`Due ${formatDisplayDate(input.dueDate)}`, left, 58, {
-      width: contentWidth,
-      align: "right",
-    });
-  }
+  rightY = doc.y + 4;
+  doc.font("Helvetica");
+  doc.text(
+    `REFERENCE: ${input.referenceText?.trim() || input.customerLpo || "RFQ"}`,
+    rightX,
+    rightY,
+    { width: rightW, align: "right" },
+  );
+  rightY = doc.y + 4;
 
-  let y = 96;
+  y = Math.max(leftY, rightY) + 8;
 
-  // Seller / Buyer columns
-  const colW = contentWidth / 2 - 8;
-  doc.fillColor("#78716C").font("Helvetica-Bold").fontSize(8);
-  doc.text("FROM", left, y);
-  doc.text("BILL TO", left + colW + 16, y);
-  y += 12;
-
-  doc.fillColor("#1C1917").font("Helvetica-Bold").fontSize(10);
-  doc.text(COMPANY.legalName, left, y, { width: colW });
-  doc.text(input.customerName, left + colW + 16, y, { width: colW });
-  y += 14;
-
-  doc.fillColor("#44403C").font("Helvetica").fontSize(9);
-  const sellerLines = [
-    COMPANY.postal,
-    COMPANY.address,
-    `Tel: ${COMPANY.phone}`,
-    `Email: ${COMPANY.email}`,
-    COMPANY.pin ? `PIN: ${COMPANY.pin}` : null,
-  ].filter(Boolean) as string[];
-
-  const buyerLines = [
-    input.customerAddress,
-    input.customerPhone ? `Tel: ${input.customerPhone}` : null,
-    input.customerEmail ? `Email: ${input.customerEmail}` : null,
-    input.customerPin ? `PIN: ${input.customerPin}` : null,
-    input.customerLpo ? `LPO: ${input.customerLpo}` : null,
-  ].filter(Boolean) as string[];
-
-  const sellerBlock = sellerLines.join("\n");
-  const buyerBlock = buyerLines.join("\n") || "—";
-  const sellerH = doc.heightOfString(sellerBlock, { width: colW });
-  const buyerH = doc.heightOfString(buyerBlock, { width: colW });
-  doc.text(sellerBlock, left, y, { width: colW });
-  doc.text(buyerBlock, left + colW + 16, y, { width: colW });
-  y += Math.max(sellerH, buyerH) + 16;
-
-  // Meta strip
-  doc.roundedRect(left, y, contentWidth, 28, 4).fill("#FAF6F1");
-  doc.fillColor("#78716C").font("Helvetica").fontSize(8);
-  const statusLabel = input.status.toUpperCase();
-  doc.text(`Status: ${statusLabel}`, left + 10, y + 10);
-  doc.text(`Currency: KES`, left + contentWidth * 0.35, y + 10);
-  if (input.paymentTerms) {
-    doc.text(`Terms: ${input.paymentTerms}`, left + contentWidth * 0.58, y + 10, {
-      width: contentWidth * 0.4,
-    });
-  }
-  y += 40;
-
-  // Table header
-  const cols = {
-    desc: left,
-    qty: left + contentWidth * 0.48,
-    unit: left + contentWidth * 0.58,
-    price: left + contentWidth * 0.68,
-    total: left + contentWidth * 0.84,
+  // Table
+  const col = {
+    item: left,
+    desc: left + 36,
+    units: left + 280,
+    rate: left + 340,
+    amount: left + 430,
   };
-  const descW = cols.qty - cols.desc - 6;
+  const colW = {
+    item: 34,
+    desc: 240,
+    units: 56,
+    rate: 84,
+    amount: right - (left + 430),
+  };
 
-  doc.rect(left, y, contentWidth, 22).fill("#1C1917");
-  doc.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8);
-  doc.text("Description", cols.desc + 8, y + 7);
-  doc.text("Qty", cols.qty, y + 7, { width: 40, align: "right" });
-  doc.text("Unit", cols.unit, y + 7, { width: 36 });
-  doc.text("Unit price", cols.price, y + 7, { width: 70, align: "right" });
-  doc.text("Amount", cols.total, y + 7, { width: right - cols.total - 4, align: "right" });
-  y += 26;
-
-  const ensureSpace = (need: number) => {
-    if (y + need < doc.page.height - 70) return;
-    doc.addPage();
-    y = 48;
-    doc.rect(left, y, contentWidth, 22).fill("#1C1917");
+  function drawTableHeader() {
+    doc.rect(left, y, contentWidth, 22).fill(purple);
     doc.fillColor("#FFFFFF").font("Helvetica-Bold").fontSize(8);
-    doc.text("Description", cols.desc + 8, y + 7);
-    doc.text("Qty", cols.qty, y + 7, { width: 40, align: "right" });
-    doc.text("Unit", cols.unit, y + 7, { width: 36 });
-    doc.text("Unit price", cols.price, y + 7, { width: 70, align: "right" });
-    doc.text("Amount", cols.total, y + 7, { width: right - cols.total - 4, align: "right" });
+    const headerY = y + 7;
+    doc.text("ITEM", col.item + 4, headerY, { width: colW.item });
+    doc.text("DESCRIPTION", col.desc, headerY, { width: colW.desc });
+    doc.text("UNITS", col.units, headerY, { width: colW.units, align: "right" });
+    doc.text("KSH RATE", col.rate, headerY, { width: colW.rate, align: "right" });
+    doc.text("AMOUNT", col.amount, headerY, { width: colW.amount, align: "right" });
     y += 26;
-  };
+  }
 
+  ensureSpace(40);
+  drawTableHeader();
+
+  doc.fillColor(ink).font("Helvetica").fontSize(9);
   input.items.forEach((item, index) => {
-    const descHeight = Math.max(
-      16,
-      doc.font("Helvetica").fontSize(9).heightOfString(item.description, { width: descW }),
-    );
-    const rowH = descHeight + 10;
-    ensureSpace(rowH + 4);
-
+    const rowH = Math.max(18, doc.heightOfString(item.description, { width: colW.desc }) + 6);
+    ensureSpace(rowH + 8);
+    if (y < doc.page.margins.top + 30) drawTableHeader();
     if (index % 2 === 1) {
-      doc.rect(left, y - 2, contentWidth, rowH).fill("#FAF6F1");
+      doc.rect(left, y - 2, contentWidth, rowH).fill("#F7F3F9");
+      doc.fillColor(ink);
     }
-
-    doc.fillColor("#1C1917").font("Helvetica").fontSize(9);
-    doc.text(item.description, cols.desc + 8, y, { width: descW });
-    doc.text(qty(item.quantity), cols.qty, y, { width: 40, align: "right" });
-    doc.text(item.unit || "pc", cols.unit, y, { width: 36 });
-    doc.text(money(item.unitPriceKes).replace("KES ", ""), cols.price, y, {
-      width: 70,
-      align: "right",
-    });
-    doc.font("Helvetica-Bold");
-    doc.text(money(item.lineTotalKes).replace("KES ", ""), cols.total, y, {
-      width: right - cols.total - 4,
-      align: "right",
-    });
+    doc.text(String(index + 1), col.item + 4, y, { width: colW.item });
+    doc.text(item.description, col.desc, y, { width: colW.desc });
+    doc.text(qty(item.quantity), col.units, y, { width: colW.units, align: "right" });
+    doc.text(money(item.unitPriceKes), col.rate, y, { width: colW.rate, align: "right" });
+    doc.text(money(item.lineTotalKes), col.amount, y, { width: colW.amount, align: "right" });
     y += rowH;
   });
 
-  if (input.items.length === 0) {
-    doc.fillColor("#78716C").font("Helvetica-Oblique").fontSize(9);
-    doc.text("No line items.", left + 8, y);
-    y += 20;
+  y += 10;
+  ensureSpace(90);
+  const totalsX = left + 280;
+  const totalsLabelW = 150;
+  const totalsValueW = right - (totalsX + totalsLabelW);
+
+  function totalRow(label: string, value: string, bold = false) {
+    doc
+      .font(bold ? "Helvetica-Bold" : "Helvetica")
+      .fontSize(10)
+      .fillColor(ink);
+    doc.text(label, totalsX, y, { width: totalsLabelW });
+    doc.text(value, totalsX + totalsLabelW, y, { width: totalsValueW, align: "right" });
+    y += 16;
   }
 
-  y += 8;
-  ensureSpace(120);
-
-  // Totals box
-  const boxW = 220;
-  const boxX = right - boxW;
-  doc.roundedRect(boxX, y, boxW, input.taxRatePercent > 0 ? 78 : 58, 4).stroke("#E7E0D6");
-
-  let ty = y + 10;
-  doc.fillColor("#78716C").font("Helvetica").fontSize(9);
-  doc.text("Subtotal", boxX + 12, ty);
-  doc.fillColor("#1C1917").text(money(input.subtotalKes), boxX + 12, ty, {
-    width: boxW - 24,
-    align: "right",
-  });
-  ty += 16;
-
+  totalRow("Total cost", money(input.subtotalKes));
   if (input.taxRatePercent > 0) {
-    doc.fillColor("#78716C").text(`VAT (${input.taxRatePercent}%)`, boxX + 12, ty);
-    doc.fillColor("#1C1917").text(money(input.taxKes), boxX + 12, ty, {
-      width: boxW - 24,
-      align: "right",
+    totalRow(`${input.taxRatePercent}% VAT`, money(input.taxKes));
+    totalRow(`Total ${input.taxRatePercent}% VAT Inclusive`, money(input.totalKes), true);
+  } else {
+    totalRow("Total", money(input.totalKes), true);
+  }
+
+  y += 10;
+  ensureSpace(60);
+  doc.fillColor(ink).font("Helvetica").fontSize(9);
+  if (input.documentKind === "proforma") {
+    doc.text(`Quote is valid until ${formatLongDate(input.dueDate ?? input.issueDate)}`, left, y);
+    y = doc.y + 6;
+  }
+  doc.text(input.paymentTerms?.trim() || "Full payment to be done with order", left, y, {
+    width: contentWidth,
+  });
+  y = doc.y + 6;
+  if (input.dueDate) {
+    doc.text(`Due date ${formatShortDate(input.dueDate)}`, left, y);
+    y = doc.y + 8;
+  }
+
+  if (input.deliveryMeta) {
+    doc.fillColor(muted).fontSize(8).text(`Delivery: ${input.deliveryMeta}`, left, y, {
+      width: contentWidth,
     });
-    ty += 16;
+    y = doc.y + 6;
   }
-
-  doc
-    .moveTo(boxX + 10, ty)
-    .lineTo(boxX + boxW - 10, ty)
-    .stroke("#E7E0D6");
-  ty += 8;
-  doc.fillColor("#C45C26").font("Helvetica-Bold").fontSize(11);
-  doc.text("Total", boxX + 12, ty);
-  doc.text(money(input.totalKes), boxX + 12, ty, { width: boxW - 24, align: "right" });
-
-  y += input.taxRatePercent > 0 ? 92 : 72;
-
-  // Logistics / remarks (NCCL-style meta)
-  if (input.deliveryMeta || input.remarks) {
-    ensureSpace(60);
-    doc.fillColor("#78716C").font("Helvetica-Bold").fontSize(8);
-    doc.text("DELIVERY / REMARKS", left, y);
-    y += 12;
-    doc.fillColor("#44403C").font("Helvetica").fontSize(9);
-    if (input.deliveryMeta) {
-      doc.text(input.deliveryMeta, left, y, { width: contentWidth });
-      y += doc.heightOfString(input.deliveryMeta, { width: contentWidth }) + 6;
-    }
-    if (input.remarks) {
-      doc.text(input.remarks, left, y, { width: contentWidth });
-      y += doc.heightOfString(input.remarks, { width: contentWidth }) + 6;
-    }
-  }
-
   if (input.notes) {
-    ensureSpace(50);
-    doc.fillColor("#78716C").font("Helvetica-Bold").fontSize(8);
-    doc.text("NOTES", left, y);
-    y += 12;
-    doc.fillColor("#44403C").font("Helvetica").fontSize(9);
-    doc.text(input.notes, left, y, { width: contentWidth });
-    y += doc.heightOfString(input.notes, { width: contentWidth }) + 10;
+    doc.fillColor(muted).fontSize(8).text(input.notes, left, y, { width: contentWidth });
+    y = doc.y + 6;
+  }
+  if (input.remarks) {
+    doc.fillColor(muted).fontSize(8).text(input.remarks, left, y, { width: contentWidth });
+    y = doc.y + 6;
   }
 
   ensureSpace(90);
-  doc.fillColor("#78716C").font("Helvetica-Bold").fontSize(8);
-  doc.text("PAYMENT DETAILS", left, y);
-  y += 12;
-  doc.fillColor("#1C1917").font("Helvetica").fontSize(9);
-  const payLines = [
-    `Bank: ${BANK_ACCOUNT.bankName}`,
-    `Account name: ${BANK_ACCOUNT.accountName}`,
-    `Account number: ${BANK_ACCOUNT.accountNumber}`,
-    `Paybill: ${BANK_ACCOUNT.paybill}`,
-    "Please quote the invoice number as payment reference.",
-  ];
-  doc.text(payLines.join("\n"), left, y, { width: contentWidth });
-  y += doc.heightOfString(payLines.join("\n"), { width: contentWidth }) + 16;
+  y += 6;
+  doc.fillColor(purple).font("Helvetica-Bold").fontSize(10);
+  doc.text("PAYMENT INSTRUCTIONS:", left, y);
+  y = doc.y + 8;
+  doc.fillColor(ink).font("Helvetica").fontSize(9);
+  doc.text("1) Bank details:", left, y);
+  y = doc.y + 8;
 
-  doc.fillColor("#A8A29E").font("Helvetica").fontSize(8);
-  doc.text(
-    "Thank you for your business. This document is a sales invoice from Amplus Construction Solutions.",
-    left,
-    Math.max(y, doc.page.height - 56),
-    { width: contentWidth, align: "center" },
-  );
+  const bankCols = [
+    { label: "Bank Name", value: BANK_ACCOUNT.bankName, w: 90 },
+    { label: "Bank Branch", value: BANK_ACCOUNT.branch, w: 100 },
+    { label: "Account Name", value: BANK_ACCOUNT.accountName, w: 170 },
+    {
+      label: "Account Number",
+      value: BANK_ACCOUNT.accountNumber,
+      w: contentWidth - 90 - 100 - 170,
+    },
+  ];
+  let bx = left;
+  doc.rect(left, y, contentWidth, 36).strokeColor(BRAND.border).stroke();
+  doc.font("Helvetica-Bold").fontSize(7).fillColor(muted);
+  for (const colDef of bankCols) {
+    doc.text(colDef.label, bx + 4, y + 4, { width: colDef.w - 8 });
+    bx += colDef.w;
+  }
+  bx = left;
+  doc.font("Helvetica").fontSize(8).fillColor(ink);
+  for (const colDef of bankCols) {
+    doc.text(colDef.value, bx + 4, y + 16, { width: colDef.w - 8 });
+    bx += colDef.w;
+  }
+  y += 44;
+
+  // Compact footer contact (samples keep the strip at top; footer repeats for multi-page clarity)
+  ensureSpace(24);
+  doc
+    .fillColor(muted)
+    .font("Helvetica")
+    .fontSize(7)
+    .text(companyContactStrip(), left, Math.max(y, pageBottom - 18), {
+      width: contentWidth,
+      align: "center",
+    });
 
   doc.end();
   return done;
-}
-
-export function invoicePdfFilename(invoiceNumber: string) {
-  const safe = invoiceNumber.replace(/[^\w.-]+/g, "_");
-  return `Amplus-Invoice-${safe}.pdf`;
 }

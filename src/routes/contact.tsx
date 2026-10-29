@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
-import { COMPANY, supportLinks } from "@/lib/company";
+import { COMPANY, YARD_DIRECTIONS_URL, supportLinks } from "@/lib/company";
 
 export const Route = createFileRoute("/contact")({
   component: ContactPage,
@@ -66,7 +66,18 @@ function ContactPage() {
             <ul className="mt-5 space-y-4 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin className="mt-0.5 size-5 text-accent" />
-                <span>{COMPANY.address}</span>
+                <span>
+                  {COMPANY.address}
+                  <br />
+                  <a
+                    href={YARD_DIRECTIONS_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-medium text-accent hover:underline"
+                  >
+                    Get directions to the yard
+                  </a>
+                </span>
               </li>
               <li className="flex items-start gap-3">
                 <Phone className="mt-0.5 size-5 text-accent" />
@@ -107,12 +118,19 @@ function ContactPage() {
                     rel="noreferrer"
                     className="hover:text-accent"
                   >
-                    Facebook · amplusinternational
+                    Follow us on Facebook
                   </a>
                 </li>
               ) : null}
             </ul>
-            <p className="mt-6 text-sm text-muted-foreground">{COMPANY.hours}</p>
+            <div className="mt-6 rounded-xl border border-border bg-secondary/40 p-4 text-sm">
+              <p className="font-semibold">Collect from the yard</p>
+              <p className="mt-1 text-muted-foreground">
+                Materials are collected from the Amplus yard on Mombasa Road. Call or WhatsApp
+                before you set off and we will have your order ready.
+              </p>
+              <p className="mt-2 text-muted-foreground">{COMPANY.hours}</p>
+            </div>
           </div>
 
           <div className="panel p-6 lg:col-span-3 sm:p-8">

@@ -183,14 +183,55 @@ export const generateStockSalesReport = createServerFn({ method: "POST" })
     const fromIso = startOfDayIso(data.fromDate);
     const toIso = endOfDayIso(data.toDate);
 
-    const { data: orders, error: orderError } = await supabaseAdmin
-      .from("orders")
-      .select(
-        "id, merchant_reference, status, created_at, customer_email, customer_phone, user_id, order_items(id, product_id, product_name, quantity, unit_price_kes, line_total_kes)",
-      )
-      .gte("created_at", fromIso)
-      .lte("created_at", toIso)
-      .order("created_at", { ascending: true });
+    type OrderReportRow = {
+      id: string;
+      merchant_reference: string;
+      status: string;
+      created_at: string;
+      customer_email: string | null;
+      customer_phone: string | null;
+      user_id: string | null;
+      customer_id?: string | null;
+      customers?: { full_name: string } | { full_name: string }[] | null;
+      order_items:
+        | {
+            id: string;
+            product_id: string | null;
+            product_name: string;
+            quantity: number;
+            unit_price_kes: number;
+            line_total_kes: number;
+          }[]
+        | null;
+    };
+
+    let orders: OrderReportRow[] | null = null;
+    let orderError: { message: string } | null = null;
+    {
+      const primary = await supabaseAdmin
+        .from("orders")
+        .select(
+          "id, merchant_reference, status, created_at, customer_email, customer_phone, user_id, customer_id, customers(full_name), order_items(id, product_id, product_name, quantity, unit_price_kes, line_total_kes)",
+        )
+        .gte("created_at", fromIso)
+        .lte("created_at", toIso)
+        .order("created_at", { ascending: true });
+      if (primary.error && /customer_id|customers/i.test(primary.error.message)) {
+        const fallback = await supabaseAdmin
+          .from("orders")
+          .select(
+            "id, merchant_reference, status, created_at, customer_email, customer_phone, user_id, order_items(id, product_id, product_name, quantity, unit_price_kes, line_total_kes)",
+          )
+          .gte("created_at", fromIso)
+          .lte("created_at", toIso)
+          .order("created_at", { ascending: true });
+        orders = (fallback.data ?? null) as OrderReportRow[] | null;
+        orderError = fallback.error;
+      } else {
+        orders = (primary.data ?? null) as OrderReportRow[] | null;
+        orderError = primary.error;
+      }
+    }
     if (orderError) throw new Error(orderError.message);
 
     const userIds = [
@@ -212,6 +253,11 @@ export const generateStockSalesReport = createServerFn({ method: "POST" })
     const lines: ReportOrderLine[] = [];
     for (const order of orders ?? []) {
       const items = order.order_items ?? [];
+      const crm = "customers" in order ? order.customers : null;
+      const crmName =
+        crm && !Array.isArray(crm) ? ((crm as { full_name?: string }).full_name ?? null) : null;
+      const customerName =
+        crmName || (order.user_id ? (profileById.get(order.user_id) ?? null) : null);
       for (const item of items) {
         const inFamily =
           data.mode === "all"
@@ -231,7 +277,7 @@ export const generateStockSalesReport = createServerFn({ method: "POST" })
           createdAt: order.created_at,
           customerEmail: order.customer_email,
           customerPhone: order.customer_phone,
-          customerName: profileById.get(order.user_id) ?? null,
+          customerName,
           productId: item.product_id,
           productName: item.product_name,
           quantity: Number(item.quantity),

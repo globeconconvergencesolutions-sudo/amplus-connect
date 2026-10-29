@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { quoteInputSchema } from "@/lib/delivery.server";
+import { COLLECTION_ONLY } from "@/lib/company";
 
 const lineSchema = z.object({
   productId: z.string().uuid(),
@@ -80,6 +81,11 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
       Math.floor(maxDiscount / Math.max(pointValue, 0.01)),
     );
     const discount = pointsRedeemed * pointValue;
+    if (COLLECTION_ONLY && data.quote.mode !== "pickup") {
+      throw new Error(
+        "Amplus orders are collected from the yard on Mombasa Road. Choose collection.",
+      );
+    }
     const { computeDeliveryQuote } = await import("@/lib/delivery.server");
     const quote = await computeDeliveryQuote(data.quote);
     if (!quote.allowed) {
@@ -132,10 +138,24 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
       ...(dropPointName ? { drop_point_name: dropPointName } : {}),
     };
 
+    const { supabaseAdmin: adminForCrm } = await import("@/integrations/supabase/client.server");
+    const { normalizePhoneKey } = await import("@/lib/company");
+    const phoneKey = normalizePhoneKey(data.address.phone);
+    let crmCustomerId: string | null = null;
+    if (phoneKey.length >= 9) {
+      const { data: crmMatch } = await adminForCrm
+        .from("customers")
+        .select("id")
+        .eq("phone_key", phoneKey)
+        .maybeSingle();
+      crmCustomerId = crmMatch?.id ?? null;
+    }
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
         user_id: userId,
+        customer_id: crmCustomerId,
         merchant_reference: merchantReference,
         subtotal_kes: subtotal,
         delivery_fee_kes: quote.feeKes,
@@ -156,7 +176,7 @@ export const createOrderAndStartPayment = createServerFn({ method: "POST" })
       .insert(items.map((item) => ({ ...item, order_id: order.id })));
     if (itemsError) throw new Error(itemsError.message);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const supabaseAdmin = adminForCrm;
 
     if (pointsRedeemed > 0) {
       await supabaseAdmin.from("loyalty_transactions").insert({

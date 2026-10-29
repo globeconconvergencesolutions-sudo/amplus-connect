@@ -1,4 +1,4 @@
-import { BANK_ACCOUNT, COMPANY } from "@/lib/company";
+import { BANK_ACCOUNT, BRAND, COMPANY, YARD_DIRECTIONS_URL, whatsappLink } from "@/lib/company";
 import { deliveryLabel, isPickupOption } from "@/lib/fulfilment";
 import { formatKes } from "@/lib/format";
 import { mailConfigured, sendMail } from "@/lib/mail.server";
@@ -22,8 +22,26 @@ function appOrigin() {
   return (process.env["PUBLIC_APP_URL"] ?? "http://localhost:8080").replace(/\/$/, "");
 }
 
-function trackUrl() {
-  return `${appOrigin()}/account?tab=orders`;
+function shopUrl() {
+  return `${appOrigin()}/`;
+}
+
+function telHref() {
+  return `tel:${COMPANY.phone.replace(/\s/g, "")}`;
+}
+
+/** Customers have no account on the public site, so order mail points at a call or WhatsApp. */
+function orderWhatsApp(ref: string, message: string) {
+  return whatsappLink(`Hello Amplus, ${message} Order: ${ref}`);
+}
+
+function contactHtml(ref: string) {
+  const link = `color:${BRAND.orangeDark};font-weight:600`;
+  return `<p style="margin:20px 0 0;color:#44403c">Questions about ${escapeHtml(ref)}? Call <a href="${telHref()}" style="${link}">${escapeHtml(COMPANY.phone)}</a> or <a href="${escapeHtml(orderWhatsApp(ref, "I have a question about my order."))}" style="${link}">WhatsApp us</a> quoting your order code.</p>`;
+}
+
+function contactText(ref: string) {
+  return `Questions about ${ref}? Call ${COMPANY.phone} or WhatsApp us quoting your order code.`;
 }
 
 function itemLines(items: MailItem[]) {
@@ -69,24 +87,24 @@ function brandedEmail(input: {
       : "";
   const cta =
     input.ctaHref && input.ctaLabel
-      ? `<p style="margin:28px 0 0"><a href="${escapeHtml(input.ctaHref)}" style="display:inline-block;background:#c45c26;color:#ffffff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:600">${escapeHtml(input.ctaLabel)}</a></p>`
+      ? `<p style="margin:28px 0 0"><a href="${escapeHtml(input.ctaHref)}" style="display:inline-block;background:${BRAND.orange};color:#ffffff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:600">${escapeHtml(input.ctaLabel)}</a></p>`
       : "";
   const html = `<!DOCTYPE html>
 <html lang="en">
-<body style="margin:0;padding:0;background:#f5f1eb;font-family:Georgia,'Times New Roman',serif">
+<body style="margin:0;padding:0;background:${BRAND.paper};font-family:Georgia,'Times New Roman',serif">
   <div style="display:none;max-height:0;overflow:hidden">${escapeHtml(input.preheader)}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f1eb;padding:24px 12px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.paper};padding:24px 12px">
     <tr>
       <td align="center">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e7e0d6">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid ${BRAND.border}">
           <tr>
-            <td style="background:#1c1917;color:#faf6f1;padding:22px 28px">
-              <p style="margin:0;letter-spacing:0.18em;font-size:11px;text-transform:uppercase;color:#e8b089">Amplus Construction Solutions</p>
+            <td style="background:${BRAND.purple};color:#faf6f1;padding:22px 28px">
+              <p style="margin:0;letter-spacing:0.18em;font-size:11px;text-transform:uppercase;color:${BRAND.orange}">Amplus Construction Solutions</p>
               <p style="margin:8px 0 0;font-size:20px;font-weight:700">${escapeHtml(input.eyebrow)}</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:28px;color:#1c1917;line-height:1.55;font-size:15px">
+            <td style="padding:28px;color:${BRAND.ink};line-height:1.55;font-size:15px">
               <p style="margin:0 0 12px">Hi ${escapeHtml(input.greeting)},</p>
               <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3">${escapeHtml(input.title)}</h1>
               <p style="margin:0 0 16px;color:#44403c">${escapeHtml(input.intro)}</p>
@@ -102,7 +120,7 @@ function brandedEmail(input: {
               </table>
               ${input.extraHtml ?? ""}
               ${cta}
-              <p style="margin:28px 0 0;font-size:13px;color:#78716c">Need help? Call ${escapeHtml(COMPANY.phone)} or reply to this email.</p>
+              <p style="margin:28px 0 0;font-size:13px;color:#78716c">Need help? Call <a href="${telHref()}" style="color:#78716c">${escapeHtml(COMPANY.phone)}</a>, <a href="${escapeHtml(orderWhatsApp(input.orderRef, "I need help with my order."))}" style="color:#78716c">WhatsApp us</a>, or reply to this email.</p>
             </td>
           </tr>
           <tr>
@@ -156,7 +174,7 @@ export async function notifyOrderPaid(order: PaidOrderMail): Promise<void> {
   if (!mailConfigured() || !order.customerEmail) return;
   const pickup = isPickupOption(order.deliveryOption);
   const next = pickup
-    ? `We will pack your materials for collection at the yard (${COMPANY.address}).`
+    ? `We will pack your materials for collection at the yard (${COMPANY.address}) and email you the moment they are ready.`
     : `We will prepare ${deliveryLabel(order.deliveryOption)} and update you at each step.`;
   const branded = brandedEmail({
     preheader: `Payment confirmed for ${order.merchantReference}`,
@@ -167,10 +185,10 @@ export async function notifyOrderPaid(order: PaidOrderMail): Promise<void> {
     orderRef: order.merchantReference,
     totalKes: order.totalKes,
     items: order.items,
-    extraHtml: `<p style="margin:20px 0 0;color:#44403c">Track packing and delivery any time from My account → Orders.</p>`,
-    extraText: "Track packing and delivery from My account → Orders.",
-    ctaLabel: "Track my order",
-    ctaHref: trackUrl(),
+    extraHtml: contactHtml(order.merchantReference),
+    extraText: contactText(order.merchantReference),
+    ctaLabel: "WhatsApp us about this order",
+    ctaHref: orderWhatsApp(order.merchantReference, "I have a question about my order."),
   });
   const recipients = new Set<string>([order.customerEmail]);
   if (process.env["ORDER_NOTIFY_EMAIL"]) recipients.add(process.env["ORDER_NOTIFY_EMAIL"]);
@@ -188,7 +206,6 @@ type AbandonedMail = {
   merchantReference: string;
   totalKes: number;
   items: { name: string; quantity: number }[];
-  payUrl: string;
 };
 
 export async function notifyAbandonedOrder(order: AbandonedMail): Promise<boolean> {
@@ -202,10 +219,13 @@ export async function notifyAbandonedOrder(order: AbandonedMail): Promise<boolea
     orderRef: order.merchantReference,
     totalKes: order.totalKes,
     items: order.items,
-    extraHtml: `<p style="margin:20px 0 0;color:#44403c">If funds are tight, cancel from My account → Orders and we can restore the items to your cart.</p>`,
-    extraText: `Pay Bill ${BANK_ACCOUNT.paybill}. Account ${BANK_ACCOUNT.accountNumber}. If funds are tight, cancel from My account → Orders.`,
-    ctaLabel: "Complete payment",
-    ctaHref: order.payUrl,
+    extraHtml: `<p style="margin:20px 0 0;color:#44403c">Already paid? WhatsApp us your M-Pesa or bank reference and we will match it. Changed your mind? Call <a href="${telHref()}" style="color:${BRAND.orangeDark};font-weight:600">${escapeHtml(COMPANY.phone)}</a> and we will cancel the order.</p>`,
+    extraText: `Pay Bill ${BANK_ACCOUNT.paybill}. Account ${BANK_ACCOUNT.accountNumber}. Already paid? WhatsApp us your M-Pesa or bank reference. Changed your mind? Call ${COMPANY.phone} and we will cancel the order.`,
+    ctaLabel: "Send payment reference on WhatsApp",
+    ctaHref: orderWhatsApp(
+      order.merchantReference,
+      `I have paid ${formatKes(order.totalKes)}. M-Pesa / bank reference:`,
+    ),
   });
   return sendMail({
     to: order.customerEmail,
@@ -270,6 +290,21 @@ export async function notifyFulfilmentStage(order: FulfilmentMail): Promise<void
   const noteHtml = order.note
     ? `<p style="margin:20px 0 0;padding:12px 14px;background:#faf6f1;border-radius:8px"><strong>Yard note:</strong> ${escapeHtml(order.note)}</p>`
     : "";
+  const readyForCollection = pickup && order.status === "FULFILLED";
+  const readyHtml = readyForCollection
+    ? `<p style="margin:20px 0 0;color:#44403c">Call ${escapeHtml(COMPANY.phone)} before you set off and bring order ${escapeHtml(order.merchantReference)}. <a href="${YARD_DIRECTIONS_URL}" style="color:${BRAND.orangeDark};font-weight:600">Get directions to the yard</a></p>`
+    : "";
+  const cta = readyForCollection
+    ? {
+        ctaLabel: "WhatsApp before you set off",
+        ctaHref: orderWhatsApp(order.merchantReference, "I am coming to collect my order."),
+      }
+    : order.status === "DELIVERED"
+      ? { ctaLabel: "Enquire about more materials", ctaHref: shopUrl() }
+      : {
+          ctaLabel: "WhatsApp us about this order",
+          ctaHref: orderWhatsApp(order.merchantReference, "I have a question about my order."),
+        };
   const branded = brandedEmail({
     preheader: copy.title,
     eyebrow: copy.eyebrow,
@@ -279,10 +314,17 @@ export async function notifyFulfilmentStage(order: FulfilmentMail): Promise<void
     orderRef: order.merchantReference,
     totalKes: order.totalKes,
     items: order.items,
-    extraHtml: `${noteHtml}<p style="margin:20px 0 0;color:#44403c">Follow every step from My account → Orders.</p>`,
-    extraText: [order.note ? `Yard note: ${order.note}` : "", "Track from My account → Orders."].filter(Boolean).join("\n"),
-    ctaLabel: "Track my order",
-    ctaHref: trackUrl(),
+    extraHtml: `${noteHtml}${readyHtml}${contactHtml(order.merchantReference)}`,
+    extraText: [
+      order.note ? `Yard note: ${order.note}` : "",
+      readyForCollection
+        ? `Call ${COMPANY.phone} before you set off. Directions: ${YARD_DIRECTIONS_URL}`
+        : "",
+      contactText(order.merchantReference),
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    ...cta,
   });
   await sendMail({
     to: order.customerEmail,

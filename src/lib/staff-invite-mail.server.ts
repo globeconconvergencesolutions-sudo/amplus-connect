@@ -1,4 +1,4 @@
-import { COMPANY } from "@/lib/company";
+import { BRAND, COMPANY } from "@/lib/company";
 import { mailConfigured, sendMail } from "@/lib/mail.server";
 
 export type StaffRoleLabel =
@@ -43,24 +43,24 @@ function brandedShell(input: {
 }) {
   const cta =
     input.ctaHref && input.ctaLabel
-      ? `<p style="margin:28px 0 0"><a href="${escapeHtml(input.ctaHref)}" style="display:inline-block;background:#c45c26;color:#ffffff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:600">${escapeHtml(input.ctaLabel)}</a></p>`
+      ? `<p style="margin:28px 0 0"><a href="${escapeHtml(input.ctaHref)}" style="display:inline-block;background:${BRAND.orange};color:#ffffff;padding:12px 22px;text-decoration:none;border-radius:6px;font-weight:600">${escapeHtml(input.ctaLabel)}</a></p>`
       : "";
   const html = `<!DOCTYPE html>
 <html lang="en">
-<body style="margin:0;padding:0;background:#f5f1eb;font-family:Georgia,'Times New Roman',serif">
+<body style="margin:0;padding:0;background:${BRAND.paper};font-family:Georgia,'Times New Roman',serif">
   <div style="display:none;max-height:0;overflow:hidden">${escapeHtml(input.preheader)}</div>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f1eb;padding:24px 12px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${BRAND.paper};padding:24px 12px">
     <tr>
       <td align="center">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e7e0d6">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid ${BRAND.border}">
           <tr>
-            <td style="background:#1c1917;color:#faf6f1;padding:22px 28px">
-              <p style="margin:0;letter-spacing:0.18em;font-size:11px;text-transform:uppercase;color:#e8b089">Amplus Construction Solutions</p>
+            <td style="background:${BRAND.purple};color:#faf6f1;padding:22px 28px">
+              <p style="margin:0;letter-spacing:0.18em;font-size:11px;text-transform:uppercase;color:${BRAND.orange}">Amplus Construction Solutions</p>
               <p style="margin:8px 0 0;font-size:20px;font-weight:700">${escapeHtml(input.eyebrow)}</p>
             </td>
           </tr>
           <tr>
-            <td style="padding:28px;color:#1c1917;line-height:1.55;font-size:15px">
+            <td style="padding:28px;color:${BRAND.ink};line-height:1.55;font-size:15px">
               <p style="margin:0 0 12px">Hi ${escapeHtml(input.greeting)},</p>
               <h1 style="margin:0 0 12px;font-size:22px;line-height:1.3">${escapeHtml(input.title)}</h1>
               <p style="margin:0 0 16px;color:#44403c">${escapeHtml(input.intro)}</p>

@@ -1,18 +1,37 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { CheckCircle2, Download, FileText, Loader2, Plus, Receipt, Trash2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  FileText,
+  Loader2,
+  Mail,
+  MessageCircle,
+  Plus,
+  Receipt,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { AdminShell } from "@/components/admin-shell";
+import {
+  AdminBulkDeleteBar,
+  AdminDeleteButton,
+  AdminRowCheckbox,
+  AdminSelectAll,
+} from "@/components/admin-bulk-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDate, formatKes, ORDER_STATUS_LABELS } from "@/lib/format";
+import { deleteInvoices } from "@/lib/admin-delete.functions";
+import { listCustomers, searchCustomers } from "@/lib/customers.functions";
 import {
   createInvoice,
   createInvoiceFromOrder,
+  deliverInvoice,
   downloadInvoicePdf,
   listInvoices,
   listProductsForInvoice,
@@ -20,6 +39,13 @@ import {
   updateInvoiceStatus,
 } from "@/lib/invoice.functions";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export const Route = createFileRoute("/admin/invoices/")({
   component: AdminInvoicesPage,
@@ -86,6 +112,9 @@ function AdminInvoicesPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [deliveringId, setDeliveringId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | "draft" | "issued" | "paid" | "void">(
     "all",
   );
@@ -98,8 +127,12 @@ function AdminInvoicesPage() {
   const [customerLpo, setCustomerLpo] = useState("");
   const [issueDate, setIssueDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [dueDate, setDueDate] = useState("");
-  const [taxRatePercent, setTaxRatePercent] = useState("0");
-  const [paymentTerms, setPaymentTerms] = useState("Advance payment / as agreed");
+  const [taxRatePercent, setTaxRatePercent] = useState("16");
+  const [paymentTerms, setPaymentTerms] = useState("Full payment to be done with order");
+  const [documentKind, setDocumentKind] = useState<"invoice" | "proforma">("invoice");
+  const [referenceText, setReferenceText] = useState("RFQ");
+  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerSearch, setCustomerSearch] = useState("");
   const [notes, setNotes] = useState("");
   const [remarks, setRemarks] = useState("");
   const [deliveryMeta, setDeliveryMeta] = useState("");
@@ -111,6 +144,15 @@ function AdminInvoicesPage() {
     if (statusFilter === "all") return rows;
     return rows.filter((row) => row.status === statusFilter);
   }, [invoices.data, statusFilter]);
+
+  const ids = useMemo(() => filtered.map((row) => row.id), [filtered]);
+  const allSelected = ids.length > 0 && ids.every((id) => selected.has(id));
+  const someSelected = ids.some((id) => selected.has(id));
+  const selectedRows = useMemo(
+    () => filtered.filter((row) => selected.has(row.id)),
+    [filtered, selected],
+  );
+  const selectedHasPaid = selectedRows.some((row) => row.status === "paid");
 
   const previewTotals = useMemo(() => {
     const taxRate = Number(taxRatePercent) || 0;
@@ -130,10 +172,14 @@ function AdminInvoicesPage() {
     setCustomerPin("");
     setCustomerAddress("");
     setCustomerLpo("");
+    setCustomerId(null);
+    setCustomerSearch("");
+    setDocumentKind("invoice");
+    setReferenceText("RFQ");
     setIssueDate(new Date().toISOString().slice(0, 10));
     setDueDate("");
-    setTaxRatePercent("0");
-    setPaymentTerms("Advance payment / as agreed");
+    setTaxRatePercent("16");
+    setPaymentTerms("Full payment to be done with order");
     setNotes("");
     setRemarks("");
     setDeliveryMeta("");
@@ -186,6 +232,9 @@ function AdminInvoicesPage() {
           customerPin,
           customerAddress,
           customerLpo,
+          customerId,
+          documentKind,
+          referenceText,
           issueDate,
           dueDate: dueDate || null,
           taxRatePercent: Number(taxRatePercent) || 0,
@@ -202,13 +251,40 @@ function AdminInvoicesPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-invoices"] });
       resetForm();
       setShowForm(false);
-
-      const pdf = await downloadInvoicePdf({ data: { invoiceId: result.id } });
-      downloadBase64File(pdf.filename, pdf.mimeType, pdf.base64);
+      await shareAfterCreate(result.id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create invoice.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function shareAfterCreate(invoiceId: string) {
+    try {
+      const delivery = await deliverInvoice({ data: { invoiceId, sendEmail: true } });
+      downloadBase64File(delivery.filename, delivery.mimeType, delivery.base64);
+      if (delivery.emailSent) {
+        toast.success(`PDF emailed to ${delivery.customerEmail}`);
+      } else if (delivery.whatsappHref) {
+        toast.message("No email — PDF downloaded; open WhatsApp to share", {
+          action: {
+            label: "WhatsApp",
+            onClick: () => window.open(delivery.whatsappHref!, "_blank", "noopener,noreferrer"),
+          },
+        });
+      }
+    } catch (pdfError) {
+      try {
+        const pdf = await downloadInvoicePdf({ data: { invoiceId } });
+        downloadBase64File(pdf.filename, pdf.mimeType, pdf.base64);
+      } catch {
+        /* ignore */
+      }
+      toast.error(
+        pdfError instanceof Error
+          ? `Invoice saved, but share failed: ${pdfError.message}`
+          : "Invoice saved, but PDF share failed.",
+      );
     }
   }
 
@@ -220,8 +296,7 @@ function AdminInvoicesPage() {
       });
       toast.success(`Invoice ${result.invoiceNumber} created from order`);
       queryClient.invalidateQueries({ queryKey: ["admin-invoices"] });
-      const pdf = await downloadInvoicePdf({ data: { invoiceId: result.id } });
-      downloadBase64File(pdf.filename, pdf.mimeType, pdf.base64);
+      await shareAfterCreate(result.id);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not create from order.");
     } finally {
@@ -242,6 +317,32 @@ function AdminInvoicesPage() {
     }
   }
 
+  async function onDeliver(invoiceId: string) {
+    setDeliveringId(invoiceId);
+    try {
+      const result = await deliverInvoice({ data: { invoiceId, sendEmail: true } });
+      downloadBase64File(result.filename, result.mimeType, result.base64);
+
+      if (result.emailSent) {
+        toast.success(`PDF emailed to ${result.customerEmail}`);
+      } else if (result.whatsappHref) {
+        toast.message("No email on this invoice — open WhatsApp to share the PDF", {
+          action: {
+            label: "WhatsApp",
+            onClick: () => window.open(result.whatsappHref!, "_blank", "noopener,noreferrer"),
+          },
+        });
+        window.open(result.whatsappHref, "_blank", "noopener,noreferrer");
+      } else {
+        toast.success("PDF downloaded — add email or phone on the invoice to share next time");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not deliver invoice.");
+    } finally {
+      setDeliveringId(null);
+    }
+  }
+
   async function onStatus(invoiceId: string, status: "issued" | "paid" | "void" | "draft") {
     try {
       await updateInvoiceStatus({ data: { invoiceId, status } });
@@ -249,6 +350,31 @@ function AdminInvoicesPage() {
       queryClient.invalidateQueries({ queryKey: ["admin-invoices"] });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not update status.");
+    }
+  }
+
+  async function removeInvoices(invoiceIds: string[]) {
+    if (invoiceIds.length === 0) return;
+    const paid = (invoices.data ?? []).filter(
+      (row) => invoiceIds.includes(row.id) && row.status === "paid",
+    );
+    if (paid.length) {
+      toast.error(
+        `Cannot delete paid invoice${paid.length === 1 ? "" : "s"} ${paid.map((p) => p.invoice_number).join(", ")}. Void them first.`,
+      );
+      return;
+    }
+    setDeleting(true);
+    try {
+      const result = await deleteInvoices({ data: { ids: invoiceIds } });
+      toast.success(`Deleted ${result.deleted} invoice${result.deleted === 1 ? "" : "s"}`);
+      setSelected(new Set());
+      queryClient.invalidateQueries({ queryKey: ["admin-invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-crm-customers"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not delete invoices.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -261,20 +387,29 @@ function AdminInvoicesPage() {
           </p>
           <h1 className="mt-1 text-2xl tracking-tight sm:text-3xl">Invoices</h1>
           <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-            Create professional Amplus sales invoices (NCCL-style layout), download PDFs, and track
-            paid / void — including invoices from existing orders.
+            Generate Construction PDFs, email them when the customer has an address, or share via
+            WhatsApp when they only have a phone. Paid invoices stay for audit (void before delete).
           </p>
         </div>
-        <Button
-          variant="accent"
-          className="rounded-full"
-          onClick={() => {
-            setShowForm((open) => !open);
-            if (showForm) resetForm();
-          }}
-        >
-          <Plus className="size-4" /> {showForm ? "Close form" : "New invoice"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {ids.length > 0 ? (
+            <AdminSelectAll
+              checked={allSelected}
+              indeterminate={someSelected && !allSelected}
+              onCheckedChange={(next) => setSelected(next ? new Set(ids) : new Set())}
+            />
+          ) : null}
+          <Button
+            variant="accent"
+            className="rounded-full"
+            onClick={() => {
+              setShowForm((open) => !open);
+              if (showForm) resetForm();
+            }}
+          >
+            <Plus className="size-4" /> {showForm ? "Close form" : "New invoice"}
+          </Button>
+        </div>
       </div>
 
       {showForm ? (
@@ -290,13 +425,61 @@ function AdminInvoicesPage() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <Label>Document</Label>
+              <Select
+                value={documentKind}
+                onValueChange={(value) => setDocumentKind(value as "invoice" | "proforma")}
+              >
+                <SelectTrigger className="mt-1.5">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="invoice">Invoice</SelectItem>
+                  <SelectItem value="proforma">Proforma invoice</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="inv-ref">Reference</Label>
+              <Input
+                id="inv-ref"
+                className="mt-1.5"
+                value={referenceText}
+                onChange={(e) => setReferenceText(e.target.value)}
+                placeholder="RFQ"
+              />
+            </div>
+            <div>
+              <Label htmlFor="inv-crm">CRM customer (optional)</Label>
+              <CrmCustomerField
+                search={customerSearch}
+                onSearchChange={setCustomerSearch}
+                customerId={customerId}
+                onPick={(row) => {
+                  setCustomerId(row.id);
+                  setCustomerName(row.full_name);
+                  setCustomerPhone(row.phone);
+                  setCustomerEmail(row.email ?? "");
+                  setCustomerAddress(row.location ?? "");
+                  setCustomerSearch(row.full_name);
+                }}
+                onClear={() => {
+                  setCustomerId(null);
+                  setCustomerSearch("");
+                }}
+              />
+            </div>
             <div className="sm:col-span-2 lg:col-span-1">
               <Label htmlFor="inv-name">Customer name</Label>
               <Input
                 id="inv-name"
                 className="mt-1.5"
                 value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
+                onChange={(e) => {
+                  setCustomerName(e.target.value);
+                  setCustomerId(null);
+                }}
                 placeholder="Customer or company"
               />
             </div>
@@ -614,29 +797,61 @@ function AdminInvoicesPage() {
         ) : null}
 
         <div className="space-y-3">
+          <AdminBulkDeleteBar
+            count={selected.size}
+            noun="invoice"
+            warning={
+              selectedHasPaid
+                ? "Paid invoices cannot be deleted — void them first, then delete. Other selected drafts/issued/void will be removed with their line items."
+                : "Selected invoices and their line items will be permanently removed. Linked orders and CRM customers stay."
+            }
+            deleting={deleting}
+            onClear={() => setSelected(new Set())}
+            onConfirm={() => removeInvoices([...selected])}
+          />
           {filtered.map((invoice) => (
             <div key={invoice.id} className="panel overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-3 p-4">
-                <div className="min-w-0">
-                  <p className="font-medium">
-                    {invoice.invoice_number}{" "}
-                    <Badge
-                      className={cn(
-                        "ml-2",
-                        invoice.status === "paid" && "bg-success text-white",
-                        invoice.status === "issued" && "bg-accent text-accent-foreground",
-                        invoice.status === "void" && "opacity-70",
-                      )}
-                      variant={invoice.status === "draft" ? "secondary" : "default"}
-                    >
-                      {STATUS_LABEL[invoice.status] ?? invoice.status}
-                    </Badge>
-                  </p>
-                  <p className="mt-0.5 truncate text-sm text-muted-foreground">
-                    {invoice.customer_name}
-                    {invoice.customer_phone ? ` · ${invoice.customer_phone}` : ""} ·{" "}
-                    {formatDate(invoice.issue_date)}
-                  </p>
+              <div className="flex flex-wrap items-start justify-between gap-3 p-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="pt-1">
+                    <AdminRowCheckbox
+                      checked={selected.has(invoice.id)}
+                      onCheckedChange={(next) => {
+                        setSelected((prev) => {
+                          const copy = new Set(prev);
+                          if (next) copy.add(invoice.id);
+                          else copy.delete(invoice.id);
+                          return copy;
+                        });
+                      }}
+                      label={`Select invoice ${invoice.invoice_number}`}
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium">
+                      {invoice.invoice_number}{" "}
+                      <Badge variant="outline" className="ml-2">
+                        {invoice.document_kind === "proforma" ? "Proforma" : "Invoice"}
+                      </Badge>
+                      <Badge
+                        className={cn(
+                          "ml-2",
+                          invoice.status === "paid" && "bg-success text-white",
+                          invoice.status === "issued" && "bg-accent text-accent-foreground",
+                          invoice.status === "void" && "opacity-70",
+                        )}
+                        variant={invoice.status === "draft" ? "secondary" : "default"}
+                      >
+                        {STATUS_LABEL[invoice.status] ?? invoice.status}
+                      </Badge>
+                    </p>
+                    <p className="mt-0.5 truncate text-sm text-muted-foreground">
+                      {invoice.customer_name}
+                      {invoice.customer_phone ? ` · ${invoice.customer_phone}` : ""}
+                      {invoice.customer_email ? ` · ${invoice.customer_email}` : ""} ·{" "}
+                      {formatDate(invoice.issue_date)}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold">{formatKes(invoice.total_kes)}</p>
@@ -654,6 +869,22 @@ function AdminInvoicesPage() {
                         <Download className="size-3.5" />
                       )}
                       PDF
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="accent"
+                      className="rounded-full"
+                      disabled={deliveringId === invoice.id}
+                      onClick={() => void onDeliver(invoice.id)}
+                    >
+                      {deliveringId === invoice.id ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : invoice.customer_email ? (
+                        <Mail className="size-3.5" />
+                      ) : (
+                        <MessageCircle className="size-3.5" />
+                      )}
+                      {invoice.customer_email ? "Email PDF" : "WhatsApp"}
                     </Button>
                     {invoice.status !== "paid" && invoice.status !== "void" ? (
                       <Button
@@ -675,6 +906,14 @@ function AdminInvoicesPage() {
                         Void
                       </Button>
                     ) : null}
+                    {invoice.status !== "paid" ? (
+                      <AdminDeleteButton
+                        label={`Delete invoice ${invoice.invoice_number}?`}
+                        warning="This invoice and its line items will be permanently removed. The linked order and CRM customer stay."
+                        deleting={deleting}
+                        onConfirm={() => removeInvoices([invoice.id])}
+                      />
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -692,5 +931,111 @@ function AdminInvoicesPage() {
         </div>
       </section>
     </AdminShell>
+  );
+}
+
+function CrmCustomerField({
+  search,
+  onSearchChange,
+  customerId,
+  onPick,
+  onClear,
+}: {
+  search: string;
+  onSearchChange: (value: string) => void;
+  customerId: string | null;
+  onPick: (row: {
+    id: string;
+    full_name: string;
+    phone: string;
+    email: string | null;
+    location: string | null;
+  }) => void;
+  onClear: () => void;
+}) {
+  const allCustomers = useQuery({
+    queryKey: ["admin-crm-customers"],
+    queryFn: () => listCustomers(),
+  });
+  const results = useQuery({
+    queryKey: ["admin-invoice-customer-search", search],
+    enabled: search.trim().length >= 2 && !customerId,
+    queryFn: () => searchCustomers({ data: { query: search.trim() } }),
+  });
+
+  return (
+    <div className="mt-1.5 space-y-2">
+      <Select
+        value={customerId ?? ""}
+        onValueChange={(id) => {
+          if (!id) {
+            onClear();
+            return;
+          }
+          const row = (allCustomers.data ?? []).find((c) => c.id === id);
+          if (row) onPick(row);
+        }}
+      >
+        <SelectTrigger id="inv-crm">
+          <SelectValue
+            placeholder={
+              allCustomers.isLoading
+                ? "Loading…"
+                : (allCustomers.data ?? []).length
+                  ? "Browse CRM customers"
+                  : "No CRM customers yet"
+            }
+          />
+        </SelectTrigger>
+        <SelectContent className="max-h-72">
+          {(allCustomers.data ?? []).map((row) => (
+            <SelectItem key={row.id} value={row.id}>
+              {row.full_name} · {row.phone}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {!customerId ? (
+        <>
+          <Input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Or search name / phone / email…"
+          />
+          {search.trim().length >= 2 ? (
+            results.isLoading ? (
+              <p className="text-xs text-muted-foreground">Searching…</p>
+            ) : (results.data ?? []).length ? (
+              <ul className="max-h-36 space-y-1 overflow-y-auto rounded-md border border-border bg-background p-1 text-sm">
+                {(results.data ?? []).map((row) => (
+                  <li key={row.id}>
+                    <button
+                      type="button"
+                      className="flex w-full flex-col rounded-md px-2 py-1.5 text-left hover:bg-secondary"
+                      onClick={() => onPick(row)}
+                    >
+                      <span className="font-medium">{row.full_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {row.phone}
+                        {row.email ? ` · ${row.email}` : ""}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground">No CRM matches.</p>
+            )
+          ) : null}
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          Linked to CRM.{" "}
+          <button type="button" className="underline hover:text-foreground" onClick={onClear}>
+            Clear
+          </button>
+        </p>
+      )}
+    </div>
   );
 }
